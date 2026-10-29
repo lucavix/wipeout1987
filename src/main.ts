@@ -11,7 +11,7 @@ import { SHIPS, loadShips, type ShipDef } from '@/gfx/ships';
 import { drawHud } from '@/gfx/hud';
 import { drawText, textWidth } from '@/gfx/font';
 import { Ship, SHIP_TILT } from '@/game/ship';
-import { PHYS, NO_CONTROLS, WallGrid, collideShips, stepShip, type Controls } from '@/game/physics';
+import { PHYS, NO_CONTROLS, WallGrid, collideShips, stepShip, CLASSES, speedClass, setSpeedClass, classMaxSpeed, type Controls } from '@/game/physics';
 import { Race } from '@/game/race';
 import { autopilot } from '@/game/autopilot';
 import { aiControls, newAi } from '@/game/ai';
@@ -57,8 +57,9 @@ let fx: Explosion[] = [];
 const sparks = new Sparks();
 const projectiles: Projectile[] = [];
 const stats = { graze: 0, hits: 0, explosions: 0, shots: 0, weaponHits: 0 };
-type Mode = 'track' | 'select' | 'race';
-let mode: Mode = 'track';
+type Mode = 'class' | 'track' | 'select' | 'race';
+let mode: Mode = 'class';
+let classPick = CLASSES.indexOf(speedClass);
 /** Circuit highlighted on the track select screen (applied with setTrack when confirmed). */
 let trackPick = 0;
 let selectIdx = 0;
@@ -68,7 +69,7 @@ const newRace = (playerIdx = ships.indexOf(player)) => {
   order.forEach((s, i) => {
     s.respawn(track, 0); s.pos = gridPos(i); s.heading = angleOf(track.finish.dir);
     s.energy = 100; s.item = null; s.turbo = s.shield = 0; s.eliminated = false; s.dead = 0;
-    s.ai = s === ships[playerIdx] ? null : newAi(0.35 + Math.random() * 0.6, i % 3);
+    s.ai = s === ships[playerIdx] ? null : newAi(speedClass.aiMin + Math.random() * (speedClass.aiMax - speedClass.aiMin), i % 3);
   });
   player = ships[playerIdx];
   projectiles.length = 0; fx = [];
@@ -189,7 +190,15 @@ function update(dt: number): void {
   if (pressed('KeyF')) { freeCam = !freeCam; if (freeCam) fitTrack(); }
   if (pressed('KeyO')) { freeCam = true; fitTrack(); }
 
+  if (mode === 'class') {
+    if (pressed('ArrowUp') || pressed('ArrowLeft')) classPick = (classPick + CLASSES.length - 1) % CLASSES.length;
+    if (pressed('ArrowDown') || pressed('ArrowRight')) classPick = (classPick + 1) % CLASSES.length;
+    if (pressed('Enter') || pressed('Space')) { setSpeedClass(CLASSES[classPick]); mode = 'track'; }
+    endInputFrame();
+    return;
+  }
   if (mode === 'track') {
+    if (pressed('Escape') || pressed('Backspace')) mode = 'class';
     if (pressed('ArrowUp') || pressed('ArrowLeft')) trackPick = (trackPick + TRACKS.length - 1) % TRACKS.length;
     if (pressed('ArrowDown') || pressed('ArrowRight')) trackPick = (trackPick + 1) % TRACKS.length;
     if (pressed('Enter') || pressed('Space')) { if (trackPick !== trackIdx) setTrack(trackPick); mode = 'select'; }
@@ -243,9 +252,30 @@ function update(dt: number): void {
   for (const f of fx) f.update(dt);
   fx = fx.filter((f) => !f.done);
   for (let i = 0; i < ships.length; i++) for (let j = i + 1; j < ships.length; j++) if (!ships[i].dead && !ships[j].dead) collideShips(ships[i], ships[j], track.main.length);
-  if (!freeCam) camera.follow(player.pos, player.forward, player.speed / PHYS.maxSpeed, dt);
-  for (const s of ships) if (!s.dead) s.emitTrails(now, Math.min(1.5, s.speed / PHYS.maxSpeed));
+  if (!freeCam) camera.follow(player.pos, player.forward, player.speed / classMaxSpeed(), dt);
+  for (const s of ships) if (!s.dead) s.emitTrails(now, Math.min(1.5, s.speed / classMaxSpeed()));
   endInputFrame();
+}
+
+/** Speed class select: the four classes of the original, one line each. */
+function drawClassSelect(): void {
+  const { ctx, width, height } = screen;
+  ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0);
+  const centre = (txt: string, y: number, sc: number, col: string) => drawText(ctx, txt, (width - textWidth(txt, sc)) / 2, y, sc, col);
+  centre('WIPEOUT 1987', 70, 10, PAL.cyan);
+  centre('SCEGLI LA CLASSE', 160, 3, PAL.silver);
+  const y0 = 240, rowH = 96;
+  CLASSES.forEach((c, i) => {
+    const y = y0 + i * rowH, sel = i === classPick;
+    if (sel) { ctx.fillStyle = PAL.navy; ctx.fillRect(width / 2 - 360, y - 16, 720, rowH - 12); }
+    drawText(ctx, c.name, width / 2 - 330, y, 5, sel ? c.color : PAL.grey);
+    drawText(ctx, `${Math.round(c.mul * 100)}%`, width / 2 + 230, y + 6, 3, sel ? PAL.white : PAL.steel);
+    drawText(ctx, c.note, width / 2 - 330, y + 46, 2, sel ? PAL.silver : PAL.steel);
+    ctx.fillStyle = PAL.slate; ctx.fillRect(width / 2 - 330, y + 70, 640, 6);
+    ctx.fillStyle = sel ? c.color : PAL.grey; ctx.fillRect(width / 2 - 330, y + 70, Math.round(640 * c.mul / 1.18), 6);
+  });
+  centre('SU/GIU: CLASSE   INVIO: AVANTI', height - 80, 3, PAL.white);
+  centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
 }
 
 /** Track select: list on the left, minimap of the highlighted circuit (raw centreline) on the right. */
@@ -296,7 +326,7 @@ function drawTrackSelect(): void {
   let len = 0;
   for (let i = 0; i < n; i++) len += Math.hypot(d.main[(i + 1) % n].x - d.main[i].x, d.main[(i + 1) % n].y - d.main[i].y);
   drawText(ctx, `${d.name.toUpperCase()}   ${(len / 1000).toFixed(1)} KM${d.jump ? '   SALTO' : ''}${d.tunnels?.length ? '   GALLERIA' : ''}`, bx + 16, by + bh - 30, 2, PAL.silver);
-  centre('SU/GIU: PISTA   INVIO: AVANTI', height - 80, 3, PAL.white);
+  centre('SU/GIU: PISTA   INVIO: AVANTI   ESC: CLASSE', height - 80, 3, PAL.white);
   centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
 }
 
@@ -328,6 +358,7 @@ function drawSelect(): void {
 function render(): void {
   const { ctx, width, height } = screen;
   beginFrame(screen, PAL.black);
+  if (mode === 'class') { drawClassSelect(); return; }
   if (mode === 'track') { drawTrackSelect(); return; }
   if (mode === 'select') { drawSelect(); return; }
   camera.apply(screen);
@@ -344,7 +375,7 @@ function render(): void {
 
   const e = race.entry(player);
   drawHud(screen, {
-    shipName: player.def.name, speed: player.speed, maxSpeed: PHYS.maxSpeed, lap: Math.min(LAPS, e.lap + 1), laps: LAPS,
+    shipName: `${player.def.name}  ${speedClass.name}`, speed: player.speed, maxSpeed: classMaxSpeed(), lap: Math.min(LAPS, e.lap + 1), laps: LAPS,
     time: e.finished ? e.finishTime! : race.lapTime(e), bestLap: e.best, energy: player.energy / 100,
     item: player.item ? ITEM_NAMES[player.item] : null, position: race.position(player), total: ships.length,
     shield: player.shield, turbo: player.turbo, fps,

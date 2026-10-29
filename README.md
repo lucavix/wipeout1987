@@ -20,11 +20,16 @@ original pixel art inspired by the games.
 
 ## What it is
 
-- Two circuits. **Altima VII**, the first track of the 1995 game, traced from VGCartography's track
+- Four speed classes like the original: **Vector**, **Venom**, **Rapier** and **Phantom**. Rapier is the
+  handling the game was tuned on; Vector and Venom are slower with calmer opponents, Phantom is faster
+  with the sharpest AI. Chosen first, before the circuit and the ship.
+- Three circuits from the 1995 game, traced from VGCartography's map, plus one more. **Altima VII**, the first track of the 1995 game, traced from VGCartography's track
   map: the long start straight, the climb on the right, the big loop, the covered descent, the road
-  over the mountain and the tunnel that passes under it back to the start line. **Sagarmatha**, with
-  a long left straight, a hairpin, a jump on the right straight and a wide loop at the top. Both have
-  a pit lane that recharges your energy. Up/down on the ship select screen picks the circuit.
+  over the mountain and the tunnel that passes under it back to the start line. **Karbonis V**, a fast forest loop
+  with a covered descent. **Terramax**, with the road on top of the dam, a covered pipe and the bridge
+  over the lake. **Sagarmatha**, with a long left straight, a hairpin, a jump on the right straight and
+  a wide loop at the top. All have a pit lane that recharges your energy. The track select screen shows
+  a minimap of each circuit.
 - Vector track geometry with chunky 8-bit textures: five parallel strips (two neon kerbs, three lanes),
   one PNG texture per strip, every world pixel mapped to exactly one texel.
 - Anti-gravity handling: thrust, brake, steering that tightens as you slow down, left/right airbrakes
@@ -49,8 +54,8 @@ original pixel art inspired by the games.
 | Z / X | Left / right airbrake |
 | Space | Use item |
 | Esc | Pause |
-| Up / down (select screen) | Choose the circuit |
-| Enter | Start the race / back to ship select |
+| Up / down (menus) | Choose the class, the circuit, then left / right the ship |
+| Enter / Esc | Next screen / previous screen; Enter starts the race |
 | A | Autopilot (handy to watch the track) |
 | F / O | Free camera / whole track |
 | B / D | Show strip outlines / walls |

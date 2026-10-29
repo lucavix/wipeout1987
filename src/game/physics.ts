@@ -66,6 +66,20 @@ export class WallGrid {
   }
 }
 
+/** Speed classes of the original: Rapier is the handling tuned so far; Vector and Venom are slower and
+ *  calmer, Phantom faster with sharper opponents. `mul` scales the top speed and the pad boost. */
+export interface SpeedClass { id: string; name: string; mul: number; aiMin: number; aiMax: number; note: string; color: string }
+export const CLASSES: SpeedClass[] = [
+  { id: 'vector', name: 'VECTOR', mul: 0.72, aiMin: 0.2, aiMax: 0.55, note: 'LENTA. PER IMPARARE LA PISTA', color: '#7dff3a' },
+  { id: 'venom', name: 'VENOM', mul: 0.86, aiMin: 0.3, aiMax: 0.7, note: 'VELOCE. AVVERSARI PIU\' SVEGLI', color: '#f2d23c' },
+  { id: 'rapier', name: 'RAPIER', mul: 1.0, aiMin: 0.4, aiMax: 0.9, note: 'MOLTO VELOCE. LA CLASSE DI RIFERIMENTO', color: '#4fd1ff' },
+  { id: 'phantom', name: 'PHANTOM', mul: 1.18, aiMin: 0.6, aiMax: 1.0, note: 'FOLLE. I MURI FANNO ANCORA PIU\' MALE', color: '#e8303a' },
+];
+export let speedClass: SpeedClass = CLASSES[2];
+export function setSpeedClass(c: SpeedClass): void { speedClass = c; }
+/** Top speed of the current class (before the per-ship stat). */
+export const classMaxSpeed = (): number => PHYS.maxSpeed * speedClass.mul;
+
 export interface StepEvents { wallHit: number; padHit: boolean; fell: boolean; landed: boolean; exploded: boolean; eliminated: boolean; pickup: boolean; graze: { pos: Vec2; dir: Vec2; n: Vec2 } | null }
 
 /** Advance one ship by dt. Returns what happened (for sound/fx/HUD). */
@@ -87,7 +101,7 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
     ship.energy = Math.max(10, ship.energy - P.fallDamage);
     ship.vel = { x: 0, y: 0 }; ship.speed = 0; ship.airborne = false;
   };
-  const maxSpeed = P.maxSpeed * (0.85 + 0.3 * st.speed);
+  const maxSpeed = classMaxSpeed() * (0.85 + 0.3 * st.speed);
   const fwd = fromAngle(ship.heading);
   const side = { x: -fwd.y, y: fwd.x };
   let vf = dot(ship.vel, fwd), vs = dot(ship.vel, side);
@@ -173,7 +187,7 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
         ship.padTile = m.k0; ev.padHit = true;
         const cap = maxSpeed * P.padMax;
         const vfNow = dot(ship.vel, nf);
-        ship.vel = add(ship.vel, mul(nf, Math.max(0, Math.min(cap, vfNow + P.padBoost) - vfNow)));
+        ship.vel = add(ship.vel, mul(nf, Math.max(0, Math.min(cap, vfNow + P.padBoost * speedClass.mul) - vfNow)));
       }
     }
     if (!track.laneMarks.some((m) => m.k0 === ship.padTile && ship.tile >= m.k0 && ship.tile < m.k1)) ship.padTile = -1;
