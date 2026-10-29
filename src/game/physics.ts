@@ -70,10 +70,10 @@ export class WallGrid {
  *  calmer, Phantom faster with sharper opponents. `mul` scales the top speed and the pad boost. */
 export interface SpeedClass { id: string; name: string; mul: number; aiMin: number; aiMax: number; note: string; color: string }
 export const CLASSES: SpeedClass[] = [
-  { id: 'vector', name: 'VECTOR', mul: 0.7, aiMin: 0.2, aiMax: 0.55, note: 'LENTA. PER IMPARARE LA PISTA', color: '#7dff3a' },
-  { id: 'venom', name: 'VENOM', mul: 0.85, aiMin: 0.3, aiMax: 0.7, note: 'VELOCE. AVVERSARI PIU\' SVEGLI', color: '#f2d23c' },
-  { id: 'rapier', name: 'RAPIER', mul: 1.0, aiMin: 0.4, aiMax: 0.9, note: 'MOLTO VELOCE. LA CLASSE DI RIFERIMENTO', color: '#4fd1ff' },
-  { id: 'phantom', name: 'PHANTOM', mul: 1.3, aiMin: 0.6, aiMax: 1.0, note: 'FOLLE. I MURI FANNO ANCORA PIU\' MALE', color: '#e8303a' },
+  { id: 'vector', name: 'VECTOR', mul: 0.8, aiMin: 0.2, aiMax: 0.55, note: 'LENTA. PER IMPARARE LA PISTA', color: '#7dff3a' },
+  { id: 'venom', name: 'VENOM', mul: 1.2, aiMin: 0.3, aiMax: 0.7, note: 'VELOCE. AVVERSARI PIU\' SVEGLI', color: '#f2d23c' },
+  { id: 'rapier', name: 'RAPIER', mul: 1.4, aiMin: 0.4, aiMax: 0.9, note: 'MOLTO VELOCE. LA CLASSE DI RIFERIMENTO', color: '#4fd1ff' },
+  { id: 'phantom', name: 'PHANTOM', mul: 1.6, aiMin: 0.6, aiMax: 1.0, note: 'FOLLE. I MURI FANNO ANCORA PIU\' MALE', color: '#e8303a' },
 ];
 export let speedClass: SpeedClass = CLASSES[2];
 export function setSpeedClass(c: SpeedClass): void { speedClass = c; }
