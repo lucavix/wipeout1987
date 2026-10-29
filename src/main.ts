@@ -272,7 +272,7 @@ function drawClassSelect(): void {
     drawText(ctx, `${Math.round(c.mul * 100)}%`, width / 2 + 230, y + 6, 3, sel ? PAL.white : PAL.steel);
     drawText(ctx, c.note, width / 2 - 330, y + 46, 2, sel ? PAL.silver : PAL.steel);
     ctx.fillStyle = PAL.slate; ctx.fillRect(width / 2 - 330, y + 70, 640, 6);
-    ctx.fillStyle = sel ? c.color : PAL.grey; ctx.fillRect(width / 2 - 330, y + 70, Math.round(640 * c.mul / 1.18), 6);
+    ctx.fillStyle = sel ? c.color : PAL.grey; ctx.fillRect(width / 2 - 330, y + 70, Math.round(640 * c.mul / CLASSES[CLASSES.length - 1].mul), 6);
   });
   centre('SU/GIU: CLASSE   INVIO: AVANTI', height - 80, 3, PAL.white);
   centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
