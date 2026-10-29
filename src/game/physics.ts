@@ -5,7 +5,7 @@ import { alongDist, laneIndexAt, projectOnLane, tileOfS } from '@/track/track';
 import { pointInPolygon } from '@/engine/math';
 import { randomItem } from './weapons';
 
-/** Anti-grav handling model. All values are world units (2.5 units = 1 track texel) and seconds. */
+/** Anti-grav handling model. All values are world units (5 units = 1 track texel) and seconds. */
 export const PHYS = {
   maxSpeed: 1500,     // terminal speed under full thrust, u/s
   thrust: 1200,       // u/s^2
