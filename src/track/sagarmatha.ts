@@ -10,6 +10,7 @@ import type { TrackData } from './track';
 export const SAGARMATHA: TrackData = {
   id: 'sagarmatha',
   name: 'Sagarmatha',
+  country: 'Nepal',
   theme: { ground: 'background', ref: { src: 'ref/sagarmatha.png', sx: 10, sy: 10 } },
   main: [
   { x: 890, y: 5220 }, { x: 900, y: 5820 }, { x: 890, y: 6960 }, { x: 890, y: 7060 },

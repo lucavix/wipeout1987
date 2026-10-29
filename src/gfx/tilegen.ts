@@ -150,5 +150,23 @@ TILE_SPECS.push(
   } },
 );
 
+/** Ground themes of the other circuits: same blotch noise, different palettes and speckles. */
+const ground = (name: string, note: string, cols: [string, string, string, string], speck: [string, string]): TileSpec => ({
+  name, w: BG_SIZE, h: BG_SIZE, note, px: (x, y) => {
+    const v = blotch(x, y), n = noise(x, y);
+    if (n < 0.004) return speck[0];
+    if (n < 0.009) return speck[1];
+    return v < 0.32 ? cols[0] : v < 0.5 ? cols[1] : v < 0.66 ? cols[2] : cols[3];
+  },
+});
+TILE_SPECS.push(
+  ground('ground_karbonis', 'sfondo Karbonis V: foresta giapponese di notte, verde muschio e abeti', ['#0c1f10', '#132a16', '#1a361d', '#213f22'], ['#4a5a3a', '#071308']),
+  ground('ground_terramax', 'sfondo Terramax: prati tedeschi, verde chiaro con rocce', ['#2a4a1e', '#365c24', '#42702c', '#4e8034'], ['#8a8a6a', '#1e3a16']),
+  ground('ground_korodera', 'sfondo Korodera: zona industriale russa, terra scura e cenere', ['#14110f', '#1d1813', '#262019', '#2e2820'], ['#5a4a3a', '#0a0806']),
+  ground('ground_arridos', 'sfondo Arridos IV: deserto americano, sabbia rossa e roccia', ['#5a2a22', '#6e3628', '#834430', '#96523a'], ['#c08a60', '#3a1a14']),
+  ground('ground_silverstream', 'sfondo Silverstream: ghiaccio della Groenlandia, bianco azzurro', ['#8fb4d6', '#a4c6e4', '#b8d6ee', '#cce4f6'], ['#ffffff', '#6a90b8']),
+  ground('ground_firestar', 'sfondo Firestar: Marte, lava e roccia nera', ['#2a0a06', '#4a1208', '#7a2408', '#b84a10'], ['#ff9a30', '#120402']),
+);
+
 /** Optional PNGs that override a derived tile when present. */
 export const OPTIONAL_TILES = ['kerb_right', 'pit_kerb_right'];

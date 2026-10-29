@@ -78,6 +78,7 @@ if pit:
 jump = spec.get('jump')
 jump_ts = f"{{ from: {jump[0]}, to: {jump[1]} }}" if jump else 'null'
 tunnels_ts = ', '.join(f'{{ from: {a}, to: {b} }}' for a, b in spec.get('tunnels', []))
+bridges_ts = ', '.join(f'{{ from: {a}, to: {b} }}' for a, b in spec.get('bridges', []))
 pads = lambda key: ' '.join(f'{{ t: {t}, lane: {l} }},' for t, l in spec.get(key, []))
 const = spec['const']
 ts = f"""import type {{ TrackData }} from './track';
@@ -92,6 +93,7 @@ ts = f"""import type {{ TrackData }} from './track';
 export const {const}: TrackData = {{
   id: '{spec['id']}',
   name: '{spec['track_name']}',
+  country: '{spec['country']}',
   theme: {{ ground: '{spec['ground']}', ref: {{ src: '{spec['ref_src']}', sx: {u}, sy: {u * sy:g} }} }},
   main: [
 {fmt_pts(world)}
@@ -99,6 +101,7 @@ export const {const}: TrackData = {{
   pit: {pit_ts},
   jump: {jump_ts},
   tunnels: [{tunnels_ts}],
+  bridges: [{bridges_ts}],
   speedPads: [
     {pads('speed_pads')}
   ],

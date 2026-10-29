@@ -100,7 +100,8 @@ function chunkAt(cx: number, cy: number): Chunk {
   return c;
 }
 
-function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet): void {
+function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet, onBridge: boolean | null = null): void {
+  const isBridge = (k: number) => track.bridges.some((b) => k >= b.k0 && k <= b.k1);
   const n = lane.center.length;
   const segs = lane.closed ? n : n - 1;
   const step = T.TRACK_PX / 2;
@@ -118,6 +119,7 @@ function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet): void {
         const f = si / sCount;
         const s = lane.cum[i] + f * segLen;
         const k = Math.floor(s / tileLen);
+        if (onBridge !== null && isBridge(k) !== onBridge) continue;
         const tx = stripTex(t, track, lane, strip, k);
         const u = Math.min(tx.w - 1, Math.floor(((s - k * tileLen) / T.TRACK_PX) * (tx.w / T.TILE_LEN)));
         const px = a.x + (b.x - a.x) * f, py = a.y + (b.y - a.y) * f;
@@ -144,9 +146,11 @@ export function prerenderTrack(track: Track): string {
   chunks = new Map();
   chunksFor = track;
   if (track.pit) splatLane(track, track.pit, true, t);
-  splatLane(track, track.main, true, t);
+  splatLane(track, track.main, true, t, false);
   if (track.pit) splatLane(track, track.pit, false, t);
-  splatLane(track, track.main, false, t);
+  splatLane(track, track.main, false, t, false);
+  // Bridges last, kerbs and lanes together, so they sit on top where the track crosses itself.
+  if (track.bridges.length) { splatLane(track, track.main, true, t, true); splatLane(track, track.main, false, t, true); }
   for (const c of chunks.values()) c.canvas.getContext('2d')!.putImageData(c.img, 0, 0);
   return `${chunks.size} chunks of ${CHUNK}x${CHUNK} px`;
 }

@@ -10,6 +10,7 @@ import type { TrackData } from './track';
 export const ALTIMA_VII: TrackData = {
   id: 'altima',
   name: 'Altima VII',
+  country: 'Canada',
   theme: { ground: 'ground_altima', ref: { src: 'ref/altima.png', sx: 10, sy: 14 } },
   main: [
   { x: 7920, y: 10740 }, { x: 8650, y: 10930 }, { x: 9530, y: 11130 }, { x: 10480, y: 11020 },
@@ -44,6 +45,7 @@ export const ALTIMA_VII: TrackData = {
   },
   jump: null,
   tunnels: [{ from: 29, to: 35 }, { from: 77, to: 85 }],
+  bridges: [{ from: 41, to: 46 }],
   speedPads: [
     { t: 0.05, lane: 1 }, { t: 0.16, lane: 0 }, { t: 0.27, lane: 2 }, { t: 0.42, lane: 1 }, { t: 0.52, lane: 0 }, { t: 0.62, lane: 2 }, { t: 0.72, lane: 1 }, { t: 0.8, lane: 0 },
   ],

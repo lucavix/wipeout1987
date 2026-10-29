@@ -4,6 +4,7 @@ import { KERB_W, LANE_W, PIT_KERB_W, TILE_LEN, TRACK_PX } from '@/gfx/tiles';
 export interface TrackData {
   id: string;
   name: string;
+  country?: string;
   /** Linea centrale del loop principale, chiusa (l'ultimo punto si ricongiunge al primo). */
   main: Vec2[];
   /** Corsia box: si stacca da main[from] e rientra in main[to]; i punti sono quelli intermedi. null = nessuna. */
@@ -12,6 +13,8 @@ export interface TrackData {
   jump: { from: number; to: number } | null;
   /** Gallerie: tra main[from] e main[to] la pista e' coperta (texture scura) e puo' incrociare altri tratti. */
   tunnels?: { from: number; to: number }[];
+  /** Tratti disegnati per ultimi (sopra agli altri) dove la pista si incrocia: il ponte, non il sottopasso. */
+  bridges?: { from: number; to: number }[];
   /** Speed pad e weapon pad: posizione come frazione t in [0,1) lungo main e corsia 0..2 (0 = sinistra). */
   speedPads: { t: number; lane: number }[];
   weaponPads: { t: number; lane: number }[];
@@ -79,6 +82,7 @@ export interface Track {
   jump: Jump | null;
   /** Covered tiles k0 <= k <= k1 of the main lane. */
   tunnels: { k0: number; k1: number }[];
+  bridges: { k0: number; k1: number }[];
   walls: Wall[];
   finish: { pos: Vec2; dir: Vec2; width: number };
   laneMarks: LaneMark[];
@@ -268,6 +272,11 @@ export function buildTrack(data: TrackData): Track {
       polygon: [...main.left.slice(i0, i1 + 1), ...main.right.slice(i0, i1 + 1).reverse()],
     };
   }
+  const range = (t: { from: number; to: number }) => ({
+    k0: Math.round(main.cum[sampleIndexOf(data.main[t.from])] / TILE_WORLD),
+    k1: Math.round(main.cum[sampleIndexOf(data.main[t.to])] / TILE_WORLD),
+  });
+  const bridges = (data.bridges ?? []).map(range);
   const tunnels = (data.tunnels ?? []).map((t) => ({
     k0: Math.round(main.cum[sampleIndexOf(data.main[t.from])] / TILE_WORLD),
     k1: Math.round(main.cum[sampleIndexOf(data.main[t.to])] / TILE_WORLD),
@@ -280,7 +289,7 @@ export function buildTrack(data: TrackData): Track {
 
   const xs = main.polygon.map((p) => p.x), ys = main.polygon.map((p) => p.y);
   const bounds = { min: { x: Math.min(...xs), y: Math.min(...ys) }, max: { x: Math.max(...xs), y: Math.max(...ys) } };
-  return { data, main, pit, jump, tunnels, walls, finish, laneMarks, bounds };
+  return { data, main, pit, jump, tunnels, bridges, walls, finish, laneMarks, bounds };
 }
 
 /** Where a point sits relative to a lane: distance along (s), signed lateral offset (d, + = right of travel), nearest sample index. */

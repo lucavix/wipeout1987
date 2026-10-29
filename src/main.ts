@@ -57,8 +57,10 @@ let fx: Explosion[] = [];
 const sparks = new Sparks();
 const projectiles: Projectile[] = [];
 const stats = { graze: 0, hits: 0, explosions: 0, shots: 0, weaponHits: 0 };
-type Mode = 'select' | 'race';
-let mode: Mode = 'select';
+type Mode = 'track' | 'select' | 'race';
+let mode: Mode = 'track';
+/** Circuit highlighted on the track select screen (applied with setTrack when confirmed). */
+let trackPick = 0;
 let selectIdx = 0;
 const newRace = (playerIdx = ships.indexOf(player)) => {
   // The chosen ship starts from the back of the grid; opponents get an AI driver with varied skill.
@@ -187,18 +189,24 @@ function update(dt: number): void {
   if (pressed('KeyF')) { freeCam = !freeCam; if (freeCam) fitTrack(); }
   if (pressed('KeyO')) { freeCam = true; fitTrack(); }
 
+  if (mode === 'track') {
+    if (pressed('ArrowUp') || pressed('ArrowLeft')) trackPick = (trackPick + TRACKS.length - 1) % TRACKS.length;
+    if (pressed('ArrowDown') || pressed('ArrowRight')) trackPick = (trackPick + 1) % TRACKS.length;
+    if (pressed('Enter') || pressed('Space')) { if (trackPick !== trackIdx) setTrack(trackPick); mode = 'select'; }
+    endInputFrame();
+    return;
+  }
   if (mode === 'select') {
     if (pressed('ArrowLeft')) selectIdx = (selectIdx + ships.length - 1) % ships.length;
     if (pressed('ArrowRight')) selectIdx = (selectIdx + 1) % ships.length;
-    if (pressed('ArrowUp')) setTrack(trackIdx - 1);
-    if (pressed('ArrowDown')) setTrack(trackIdx + 1);
+    if (pressed('Escape') || pressed('Backspace')) mode = 'track';
     if (pressed('Enter') || pressed('Space')) newRace(selectIdx);
     endInputFrame();
     return;
   }
   if (pressed('Escape')) paused = !paused;
   if (pressed('KeyA')) { if (auto.has(player)) auto.delete(player); else auto.add(player); }
-  if (pressed('Enter') && race.phase === 'finished') { mode = 'select'; endInputFrame(); return; }
+  if (pressed('Enter') && race.phase === 'finished') { mode = 'track'; endInputFrame(); return; }
 
   if (freeCam) {
     const pan = 600 / camera.zoom * dt;
@@ -240,12 +248,64 @@ function update(dt: number): void {
   endInputFrame();
 }
 
+/** Track select: list on the left, minimap of the highlighted circuit (raw centreline) on the right. */
+function drawTrackSelect(): void {
+  const { ctx, width, height } = screen;
+  ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0);
+  const centre = (txt: string, y: number, sc: number, col: string) => drawText(ctx, txt, (width - textWidth(txt, sc)) / 2, y, sc, col);
+  centre('WIPEOUT 1987', 70, 10, PAL.cyan);
+  centre('SCEGLI LA PISTA', 160, 3, PAL.silver);
+  const listX = Math.round(width * 0.08), listY = 230;
+  TRACKS.forEach((t, i) => {
+    const y = listY + i * 58, sel = i === trackPick;
+    if (sel) { ctx.fillStyle = PAL.navy; ctx.fillRect(listX - 16, y - 10, 330, 52); }
+    drawText(ctx, `${i + 1}. ${t.name.toUpperCase()}`, listX, y, 3, sel ? PAL.white : PAL.grey);
+    drawText(ctx, (t.country ?? '').toUpperCase(), listX + 36, y + 28, 2, sel ? PAL.cyan : PAL.steel);
+  });
+  // Minimap box.
+  const d = TRACKS[trackPick];
+  const bx = Math.round(width * 0.42), by = 215, bw = Math.round(width * 0.52), bh = height - 330;
+  ctx.fillStyle = PAL.night; ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeStyle = PAL.slate; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bw, bh);
+  const xs = d.main.map((p) => p.x), ys = d.main.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const sc = Math.min((bw - 60) / (maxX - minX || 1), (bh - 60) / (maxY - minY || 1));
+  const ox = bx + bw / 2 - (minX + maxX) / 2 * sc, oy = by + bh / 2 - (minY + maxY) / 2 * sc;
+  const P = (p: { x: number; y: number }) => ({ x: Math.round(ox + p.x * sc), y: Math.round(oy + p.y * sc) });
+  const n = d.main.length;
+  const inTunnel = (i: number) => (d.tunnels ?? []).some((t) => i >= t.from && i < t.to);
+  const inJump = (i: number) => !!d.jump && i >= d.jump.from && i < d.jump.to;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  // Outline then the road: segment by segment so tunnels and the jump get their own colour.
+  for (const pass of [0, 1]) {
+    for (let i = 0; i < n; i++) {
+      const a = P(d.main[i]), b = P(d.main[(i + 1) % n]);
+      ctx.lineWidth = pass === 0 ? 11 : 7;
+      ctx.strokeStyle = pass === 0 ? PAL.steel : inJump(i) ? PAL.black : inTunnel(i) ? PAL.slate : PAL.silver;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+  }
+  if (d.pit) {
+    const pts = [d.main[d.pit.from], ...d.pit.points, d.main[d.pit.to]].map(P);
+    ctx.lineWidth = 3; ctx.strokeStyle = PAL.cyan; ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.stroke();
+  }
+  const s0 = P(d.main[0]);
+  ctx.fillStyle = PAL.white; ctx.fillRect(s0.x - 6, s0.y - 6, 12, 12);
+  ctx.fillStyle = PAL.red; ctx.fillRect(s0.x - 3, s0.y - 3, 6, 6);
+  let len = 0;
+  for (let i = 0; i < n; i++) len += Math.hypot(d.main[(i + 1) % n].x - d.main[i].x, d.main[(i + 1) % n].y - d.main[i].y);
+  drawText(ctx, `${d.name.toUpperCase()}   ${(len / 1000).toFixed(1)} KM${d.jump ? '   SALTO' : ''}${d.tunnels?.length ? '   GALLERIA' : ''}`, bx + 16, by + bh - 30, 2, PAL.silver);
+  centre('SU/GIU: PISTA   INVIO: AVANTI', height - 80, 3, PAL.white);
+  centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
+}
+
 function drawSelect(): void {
   const { ctx, width, height } = screen;
   ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0);
   const centre = (txt: string, y: number, sc: number, col: string) => drawText(ctx, txt, (width - textWidth(txt, sc)) / 2, y, sc, col);
   centre('WIPEOUT 1987', 70, 10, PAL.cyan);
-  centre(`PISTA: ${track.data.name.toUpperCase()}   (SU/GIU PER CAMBIARE)`, 160, 3, PAL.silver);
+  centre(`${track.data.name.toUpperCase()}  -  SCEGLI LA NAVE`, 160, 3, PAL.silver);
   const sc = 5, gap = 70 * sc;
   const x0 = (width - ships.length * gap + gap - 50 * sc) / 2, y0 = height / 2 - 150;
   ships.forEach((s, i) => {
@@ -261,13 +321,14 @@ function drawSelect(): void {
       ctx.fillStyle = sel ? PAL.cyan : PAL.grey; ctx.fillRect(x + 60, by + 1, Math.round(100 * v), 8);
     });
   });
-  centre('SINISTRA/DESTRA: NAVE   SU/GIU: PISTA   INVIO: GARA', height - 80, 3, PAL.white);
+  centre('SINISTRA/DESTRA: NAVE   INVIO: GARA   ESC: PISTA', height - 80, 3, PAL.white);
   centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
 }
 
 function render(): void {
   const { ctx, width, height } = screen;
   beginFrame(screen, PAL.black);
+  if (mode === 'track') { drawTrackSelect(); return; }
   if (mode === 'select') { drawSelect(); return; }
   camera.apply(screen);
   drawGround(ctx, camera.viewRect(screen), track.data.theme.ground);

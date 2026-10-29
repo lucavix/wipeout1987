@@ -21,5 +21,11 @@ Rigenera le versioni procedurali con `npm run textures:generate` (non sovrascriv
 | tunnel.png | 32x36 | corsia in galleria: asfalto scuro, luci cyan sui bordi, una lampada ogni 16 px |
 | tunnel_kerb_left.png | 32x22 | bordo sinistro in galleria (cemento, neon cyan); il destro e' specchiato |
 | ground_altima.png | 128x128 | sfondo Altima VII: colline canadesi di notte, verde scuro screziato con rocce e abeti |
+| ground_karbonis.png | 128x128 | sfondo Karbonis V: foresta giapponese di notte, verde muschio e abeti |
+| ground_terramax.png | 128x128 | sfondo Terramax: prati tedeschi, verde chiaro con rocce |
+| ground_korodera.png | 128x128 | sfondo Korodera: zona industriale russa, terra scura e cenere |
+| ground_arridos.png | 128x128 | sfondo Arridos IV: deserto americano, sabbia rossa e roccia |
+| ground_silverstream.png | 128x128 | sfondo Silverstream: ghiaccio della Groenlandia, bianco azzurro |
+| ground_firestar.png | 128x128 | sfondo Firestar: Marte, lava e roccia nera |
 | kerb_right.png | 32x22 | opzionale: se manca, kerb_left specchiato |
 | pit_kerb_right.png | 32x12 | opzionale: se manca, pit_kerb_left specchiato |
