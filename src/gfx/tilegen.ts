@@ -59,10 +59,10 @@ export const TILE_SPECS: TileSpec[] = [
     return C.panelDark;
   } },
   { name: 'lane', w: TILE_LEN, h: LANE_PX, note: 'corsia normale', px: laneBase },
-  { name: 'speed_pad', w: TILE_LEN, h: LANE_PX, note: 'corsia con chevron verdi (acceleratore), puntano verso +x', px: (x, y) => {
+  { name: 'speed_pad', w: TILE_LEN, h: LANE_PX, note: 'corsia con chevron verdi (acceleratore), la punta guarda +x (verso di marcia)', px: (x, y) => {
     const e = laneEdge(x, y, LANE_PX); if (e) return e;
     const dy = Math.abs(y - 17.5);
-    const u = ((x - dy * 0.75) % 16 + 16) % 16;
+    const u = ((x + dy * 0.75) % 16 + 16) % 16;
     if (u < 3) return C.green;
     if (u < 4) return C.greenLo;
     return C.panelDark;
