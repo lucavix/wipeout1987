@@ -116,7 +116,13 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
   // Recompose velocity in the (possibly rotated) ship frame and integrate.
   const nf = fromAngle(ship.heading), ns = { x: -nf.y, y: nf.x };
   ship.vel = add(mul(nf, vf), mul(ns, vs));
-  ship.pos = add(ship.pos, mul(ship.vel, dt));
+  ship.speed = len(ship.vel);
+  // Integrate in sub-steps no longer than the collision radius so the hull can never cross a wall.
+  const steps = ship.airborne ? 1 : Math.max(1, Math.ceil(ship.speed * dt / (ship.radius * 0.7)));
+  for (let k = 0; k < steps; k++) {
+    ship.pos = add(ship.pos, mul(ship.vel, dt / steps));
+    if (!ship.airborne) resolveWalls(ship, grid, dt / steps, ev);
+  }
   ship.speed = len(ship.vel);
 
   // Track position: lane (main or pit), s, d, lane index, tile.
@@ -155,49 +161,52 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
     if (!track.laneMarks.some((m) => m.k0 === ship.padTile && ship.tile >= m.k0 && ship.tile < m.k1)) ship.padTile = -1;
   }
 
-  // Walls: circle vs nearby segments, push out and reflect.
-  if (!ship.airborne) {
-    const r = ship.radius;
-    for (const w of grid.near(ship.pos, r)) {
-      const ab = sub(w.b, w.a), l2 = ab.x * ab.x + ab.y * ab.y || 1;
-      const t = Math.max(0, Math.min(1, ((ship.pos.x - w.a.x) * ab.x + (ship.pos.y - w.a.y) * ab.y) / l2));
-      const q = add(w.a, mul(ab, t));
-      const dx = ship.pos.x - q.x, dy = ship.pos.y - q.y;
-      const d = Math.hypot(dx, dy);
-      if (d >= r || d === 0) continue;
-      const n = { x: dx / d, y: dy / d };
-      ship.pos = add(ship.pos, mul(n, r - d));
-      const vn = dot(ship.vel, n);
-      if (vn < 0) {
-        // Tangent pointing the way the ship travels.
-        let tangent = { x: -n.y, y: n.x };
-        let vt = dot(ship.vel, tangent);
-        if (vt < 0) { tangent = { x: -tangent.x, y: -tangent.y }; vt = -vt; }
-        const angle = Math.atan2(-vn, vt) * 180 / Math.PI;
-        const impact = -vn / P.maxSpeed;
-        if (angle < P.grazeDeg) {
-          // Scrape: keep the speed, run parallel to the wall tilted slightly away from it, throw sparks.
-          const a = P.grazeOutDeg * Math.PI / 180, sp = ship.speed;
-          const dir = { x: tangent.x * Math.cos(a) + n.x * Math.sin(a), y: tangent.y * Math.cos(a) + n.y * Math.sin(a) };
-          ship.vel = mul(dir, sp);
-          ev.graze = { pos: q, dir: tangent, n };
-        } else if (impact > P.hitThreshold) {
-          // A real hit: bounce back, lose some tangential speed, take damage.
-          ship.vel = add(mul(n, -vn * P.bounce), mul(tangent, vt * P.wallFriction));
-          ev.wallHit = Math.max(ev.wallHit, impact);
-          ship.energy = Math.max(0, ship.energy - P.wallDamage * impact);
-          ship.hitFlash = 0.15;
-        } else {
-          // Pushing slowly into the wall: slide along it.
-          ship.vel = mul(tangent, vt * Math.exp(-P.grindFriction * dt));
-        }
-      }
-    }
-    ship.speed = len(ship.vel);
-  }
   ship.hitFlash = Math.max(0, ship.hitFlash - dt);
   return ev;
 }
+
+/** Walls: circle vs nearby segments; push out, then graze / bounce / slide depending on the angle. */
+function resolveWalls(ship: Ship, grid: WallGrid, dt: number, ev: StepEvents): void {
+  const P = PHYS, r = ship.radius;
+  for (const w of grid.near(ship.pos, r)) {
+    const ab = sub(w.b, w.a), l2 = ab.x * ab.x + ab.y * ab.y || 1;
+    const t = Math.max(0, Math.min(1, ((ship.pos.x - w.a.x) * ab.x + (ship.pos.y - w.a.y) * ab.y) / l2));
+    const q = add(w.a, mul(ab, t));
+    const dx = ship.pos.x - q.x, dy = ship.pos.y - q.y;
+    const d = Math.hypot(dx, dy);
+    if (d >= r || d === 0) continue;
+    const n = { x: dx / d, y: dy / d };
+    ship.pos = add(ship.pos, mul(n, r - d));
+    const vn = dot(ship.vel, n);
+    if (vn < 0) {
+      // Tangent pointing the way the ship travels.
+      let tangent = { x: -n.y, y: n.x };
+      let vt = dot(ship.vel, tangent);
+      if (vt < 0) { tangent = { x: -tangent.x, y: -tangent.y }; vt = -vt; }
+      const angle = Math.atan2(-vn, vt) * 180 / Math.PI;
+      const impact = -vn / P.maxSpeed;
+      if (angle < P.grazeDeg) {
+        // Scrape: keep the speed, run parallel to the wall tilted slightly away from it, throw sparks.
+        const a = P.grazeOutDeg * Math.PI / 180, sp = ship.speed;
+        const dir = { x: tangent.x * Math.cos(a) + n.x * Math.sin(a), y: tangent.y * Math.cos(a) + n.y * Math.sin(a) };
+        ship.vel = mul(dir, sp);
+        ship.heading = Math.atan2(dir.y, dir.x);
+        ev.graze = { pos: q, dir: tangent, n };
+      } else if (impact > P.hitThreshold) {
+        // A real hit: bounce back, lose some tangential speed, take damage.
+        ship.vel = add(mul(n, -vn * P.bounce), mul(tangent, vt * P.wallFriction));
+        ev.wallHit = Math.max(ev.wallHit, impact);
+        ship.energy = Math.max(0, ship.energy - P.wallDamage * impact);
+        ship.hitFlash = 0.15;
+      } else {
+        // Pushing slowly into the wall: slide along it.
+        ship.vel = mul(tangent, vt * Math.exp(-P.grindFriction * dt));
+      }
+      ship.speed = len(ship.vel);
+    }
+  }
+}
+
 
 /** Ship vs ship: equal push apart, swap the normal velocity components (elastic-ish). */
 export function collideShips(a: Ship, b: Ship): void {
