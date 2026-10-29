@@ -70,8 +70,8 @@ export class WallGrid {
  *  calmer, Phantom faster with sharper opponents. `mul` scales the top speed and the pad boost. */
 export interface SpeedClass { id: string; name: string; mul: number; aiMin: number; aiMax: number; note: string; color: string }
 export const CLASSES: SpeedClass[] = [
-  { id: 'vector', name: 'VECTOR', mul: 0.72, aiMin: 0.2, aiMax: 0.55, note: 'LENTA. PER IMPARARE LA PISTA', color: '#7dff3a' },
-  { id: 'venom', name: 'VENOM', mul: 0.86, aiMin: 0.3, aiMax: 0.7, note: 'VELOCE. AVVERSARI PIU\' SVEGLI', color: '#f2d23c' },
+  { id: 'vector', name: 'VECTOR', mul: 0.5, aiMin: 0.2, aiMax: 0.55, note: 'LENTA. PER IMPARARE LA PISTA', color: '#7dff3a' },
+  { id: 'venom', name: 'VENOM', mul: 0.75, aiMin: 0.3, aiMax: 0.7, note: 'VELOCE. AVVERSARI PIU\' SVEGLI', color: '#f2d23c' },
   { id: 'rapier', name: 'RAPIER', mul: 1.0, aiMin: 0.4, aiMax: 0.9, note: 'MOLTO VELOCE. LA CLASSE DI RIFERIMENTO', color: '#4fd1ff' },
   { id: 'phantom', name: 'PHANTOM', mul: 1.18, aiMin: 0.6, aiMax: 1.0, note: 'FOLLE. I MURI FANNO ANCORA PIU\' MALE', color: '#e8303a' },
 ];
