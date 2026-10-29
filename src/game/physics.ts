@@ -3,6 +3,7 @@ import type { Ship } from './ship';
 import type { Track, Wall } from '@/track/track';
 import { laneIndexAt, projectOnLane, tileOfS } from '@/track/track';
 import { pointInPolygon } from '@/engine/math';
+import { randomItem } from './weapons';
 
 /** Anti-grav handling model. All values are world units (2.5 units = 1 track texel) and seconds. */
 export const PHYS = {
@@ -27,8 +28,12 @@ export const PHYS = {
   padMax: 1.3,        // speed pads can push you up to padMax * maxSpeed
   boostDecay: 1.6,    // 1/s decay of speed above maxSpeed
   jumpMinSpeed: 500,  // slower than this over the gap and you fall
+  jumpRespawnBack: 450, // restart this far before the gap (enough run-up to clear it again)
   fallDamage: 15,
   respawnDelay: 1.3, // seconds between the explosion and the restart
+  turboAccel: 1500,  // u/s^2 while a turbo item burns
+  pitRecharge: 30,   // energy per second in the pit lane
+  pitSpeed: 750,     // speed cap in the pit lane
 };
 
 export interface Controls { thrust: number; steer: number; airL: boolean; airR: boolean }
@@ -57,13 +62,15 @@ export class WallGrid {
   }
 }
 
-export interface StepEvents { wallHit: number; padHit: boolean; fell: boolean; landed: boolean; exploded: boolean; graze: { pos: Vec2; dir: Vec2; n: Vec2 } | null }
+export interface StepEvents { wallHit: number; padHit: boolean; fell: boolean; landed: boolean; exploded: boolean; eliminated: boolean; pickup: boolean; graze: { pos: Vec2; dir: Vec2; n: Vec2 } | null }
 
 /** Advance one ship by dt. Returns what happened (for sound/fx/HUD). */
 export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, dt: number): StepEvents {
-  const ev: StepEvents = { wallHit: 0, padHit: false, fell: false, landed: false, exploded: false, graze: null };
+  const ev: StepEvents = { wallHit: 0, padHit: false, fell: false, landed: false, exploded: false, eliminated: false, pickup: false, graze: null };
   const P = PHYS, st = ship.def.stats;
   ship.spawnBlink = Math.max(0, ship.spawnBlink - dt);
+  ship.turbo = Math.max(0, ship.turbo - dt); ship.shield = Math.max(0, ship.shield - dt);
+  if (ship.eliminated) return ev;
   if (ship.dead > 0) {
     ship.dead -= dt;
     if (ship.dead <= 0) { ship.dead = 0; ship.respawn(track, ship.respawnS); ship.spawnBlink = 1.5; }
@@ -86,6 +93,8 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
     if (c.thrust > 0) vf += P.thrust * (0.8 + 0.4 * st.thrust) * c.thrust * dt;
     else if (c.thrust < 0) vf -= P.brake * -c.thrust * dt;
     else vf -= Math.sign(vf) * Math.min(Math.abs(vf), P.coast * dt);
+    if (ship.turbo > 0) vf += P.turboAccel * dt;
+    if (ship.inPit && vf > P.pitSpeed) vf -= Math.min(vf - P.pitSpeed, 2500 * dt);
     // Speed-dependent drag: terminal speed = maxSpeed under full thrust; boosts above it decay.
     if (vf > maxSpeed) vf -= (vf - maxSpeed) * P.boostDecay * dt;
     else if (vf > 0) vf -= P.thrust * (vf / maxSpeed) ** 2 * dt;
@@ -130,12 +139,14 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
   ship.hint = hit.i; ship.s = hit.s; ship.d = hit.d;
   ship.laneIdx = laneIndexAt(track.main, hit.d);
   ship.tile = tileOfS(hit.s);
+  ship.inPit = hit.dist > 150 && pointInPolygon(ship.pos, track.pit.innerPolygon);
+  if (ship.inPit) ship.energy = Math.min(100, ship.energy + P.pitRecharge * dt);
 
   // Jump: over the void tiles the ship flies (no control); too slow and it falls back to the lip.
   const j = track.jump;
   const overGap = ship.laneIdx >= 0 && ship.s > j.s0 && ship.s < j.s1 && hit.dist < track.main.width;
   if (overGap && !ship.airborne) {
-    if (ship.speed < P.jumpMinSpeed) { ev.fell = true; destroy(j.s0 - 120); return ev; }
+    if (ship.speed < P.jumpMinSpeed) { ev.fell = true; destroy(j.s0 - P.jumpRespawnBack); return ev; }
     else { ship.airborne = true; ship.airT = 0; ship.airLen = (j.s1 - j.s0) / Math.max(1, ship.speed); }
   } else if (!overGap && ship.airborne) { ship.airborne = false; ev.landed = true; }
   if (ship.airborne) ship.airT += dt;
@@ -143,7 +154,7 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
   // Off the track (landed outside, or slipped through a wall): destroyed, restart on the centreline.
   if (!ship.airborne && !pointInPolygon(ship.pos, track.main.innerPolygon) && !pointInPolygon(ship.pos, track.pit.innerPolygon)) {
     const inGap = ship.s > j.s0 - 40 && ship.s < j.s1 + 200;
-    destroy(inGap ? j.s0 - 120 : ship.s);
+    destroy(inGap ? j.s0 - P.jumpRespawnBack : ship.s);
     return ev;
   }
 
@@ -159,9 +170,15 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
       }
     }
     if (!track.laneMarks.some((m) => m.k0 === ship.padTile && ship.tile >= m.k0 && ship.tile < m.k1)) ship.padTile = -1;
+    for (const m of track.laneMarks) {
+      if (m.kind !== 'weapon' || m.lane !== ship.laneIdx || ship.tile < m.k0 || ship.tile >= m.k1) continue;
+      if (ship.weaponTile !== m.k0 && !ship.item) { ship.weaponTile = m.k0; ship.item = randomItem(); ev.pickup = true; }
+    }
+    if (!track.laneMarks.some((m) => m.k0 === ship.weaponTile && ship.tile >= m.k0 && ship.tile < m.k1)) ship.weaponTile = -1;
   }
 
   ship.hitFlash = Math.max(0, ship.hitFlash - dt);
+  if (ship.energy <= 0) { ev.exploded = true; ev.eliminated = true; ship.eliminated = true; ship.dead = 1e9; ship.vel = { x: 0, y: 0 }; ship.speed = 0; }
   return ev;
 }
 
@@ -196,7 +213,7 @@ function resolveWalls(ship: Ship, grid: WallGrid, dt: number, ev: StepEvents): v
         // A real hit: bounce back, lose some tangential speed, take damage.
         ship.vel = add(mul(n, -vn * P.bounce), mul(tangent, vt * P.wallFriction));
         ev.wallHit = Math.max(ev.wallHit, impact);
-        ship.energy = Math.max(0, ship.energy - P.wallDamage * impact);
+        ship.damage(P.wallDamage * impact);
         ship.hitFlash = 0.15;
       } else {
         // Pushing slowly into the wall: slide along it.

@@ -3,6 +3,8 @@ import { bake } from '@/engine/pixelart';
 import { SHIP_PX, type ShipDef } from '@/gfx/ships';
 import { Trail } from '@/gfx/trail';
 import { laneAt, type Track } from '@/track/track';
+import type { ItemKind } from './weapons';
+import type { AiState } from './ai';
 
 /** Sprite nose points up (-y), so the sprite rotation is heading + 90deg. */
 const SPRITE_ROT = Math.PI / 2;
@@ -33,7 +35,15 @@ export class Ship {
   /** Blink timer after a respawn. */
   spawnBlink = 0;
   /** Track-relative position from the last physics step (main lane). */
-  hint = -1; s = 0; d = 0; laneIdx = -1; tile = 0; padTile = -1;
+  hint = -1; s = 0; d = 0; laneIdx = -1; tile = 0; padTile = -1; weaponTile = -1;
+  /** In the pit lane (recharging). */
+  inPit = false;
+  item: ItemKind | null = null;
+  /** Seconds of turbo / shield left. */
+  turbo = 0; shield = 0;
+  eliminated = false;
+  /** Opponent driver state (null = human). */
+  ai: AiState | null = null;
   trails: Trail[];
   constructor(public def: ShipDef, pos: Vec2, heading: number) {
     this.pos = { ...pos };
@@ -43,6 +53,13 @@ export class Ship {
   }
 
   get forward(): Vec2 { return fromAngle(this.heading); }
+
+  /** Take damage unless shielded. */
+  damage(amount: number): void {
+    if (this.shield > 0 || this.dead > 0) return;
+    this.energy = Math.max(0, this.energy - amount);
+    this.hitFlash = Math.max(this.hitFlash, 0.15);
+  }
 
   /** Put the ship on the main centreline at distance s, stopped. */
   respawn(track: Track, s: number): void {
@@ -91,6 +108,16 @@ export class Ship {
       ctx.globalAlpha = 0.45; ctx.fillStyle = '#000';
       ctx.fillRect(-w * 0.35, -h * 0.45, w * 0.7, h * 0.9);
       ctx.restore();
+    }
+    if (this.shield > 0) {
+      // Pixel ring, blinking in the last second.
+      if (this.shield > 1 || Math.floor(this.shield * 8) % 2 === 0) {
+        const r = Math.max(w, h) * 0.62;
+        ctx.strokeStyle = '#4fd1ff'; ctx.lineWidth = 4; ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const px = Math.round((this.pos.x + Math.cos(a) * r) / 4) * 4, py = Math.round((this.pos.y + Math.sin(a) * r) / 4) * 4; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.closePath(); ctx.stroke(); ctx.globalAlpha = 1;
+      }
     }
     ctx.save();
     ctx.translate(this.pos.x, this.pos.y);
