@@ -1,8 +1,31 @@
 import { add, angleDiff, angleOf, catmullRom, dist, lerpV, mul, norm, perp, pointInPolygon, sub, type Vec2 } from '@/engine/math';
 import { KERB_W, LANE_W, PIT_KERB_W, TILE_LEN, TRACK_PX } from '@/gfx/tiles';
-import type { TrackData } from './sagarmatha';
+/** Hand-traced track description (see sagarmatha.ts, altima.ts). */
+export interface TrackData {
+  id: string;
+  name: string;
+  /** Linea centrale del loop principale, chiusa (l'ultimo punto si ricongiunge al primo). */
+  main: Vec2[];
+  /** Corsia box: si stacca da main[from] e rientra in main[to]; i punti sono quelli intermedi. null = nessuna. */
+  pit: { from: number; to: number; points: Vec2[] } | null;
+  /** Salto: la pista manca tra main[from] (stacco) e main[to] (atterraggio). null = nessuno. */
+  jump: { from: number; to: number } | null;
+  /** Gallerie: tra main[from] e main[to] la pista e' coperta (texture scura) e puo' incrociare altri tratti. */
+  tunnels?: { from: number; to: number }[];
+  /** Speed pad e weapon pad: posizione come frazione t in [0,1) lungo main e corsia 0..2 (0 = sinistra). */
+  speedPads: { t: number; lane: number }[];
+  weaponPads: { t: number; lane: number }[];
+  theme: {
+    /** Texture dello sfondo fuori pista (public/textures/<ground>.png). */
+    ground: string;
+    /** Immagine di riferimento (tasto R): path sotto public/ e scala mondo/pixel sui due assi. */
+    ref?: { src: string; sx: number; sy: number };
+  };
+}
 
-export interface Wall { a: Vec2; b: Vec2 }
+/** `s`: distance along the main lane of the wall segment (undefined for pit walls). Walls far from a
+ *  ship's own track position are ignored, so tracks can cross over themselves (tunnels, bridges). */
+export interface Wall { a: Vec2; b: Vec2; s?: number }
 
 /** One strip of the track cross-section. `off` is the offset of its left edge from the centreline. */
 export interface Strip {
@@ -52,13 +75,21 @@ export interface LaneMark { lane: number; k0: number; k1: number; kind: 'speed' 
 export interface Track {
   data: TrackData;
   main: Lane;
-  pit: Lane;
-  jump: Jump;
+  pit: Lane | null;
+  jump: Jump | null;
+  /** Covered tiles k0 <= k <= k1 of the main lane. */
+  tunnels: { k0: number; k1: number }[];
   walls: Wall[];
   finish: { pos: Vec2; dir: Vec2; width: number };
   laneMarks: LaneMark[];
   bounds: { min: Vec2; max: Vec2 };
 }
+
+/** Shortest distance between two positions along a closed lane of length `len`. */
+export const alongDist = (a: number, b: number, len: number): number => {
+  const d = Math.abs(((a - b) % len + len) % len);
+  return Math.min(d, len - d);
+};
 
 const SAMPLE_STEP = 20;
 /** Minimum bend radius of the centrelines (must exceed half the track width). */
@@ -189,13 +220,14 @@ export function laneAt(lane: Lane, t: number): { pos: Vec2; dir: Vec2; s: number
   return { pos: add(a, mul(sub(b, a), f)), dir: norm(sub(b, a)), s: target };
 }
 
-function laneWalls(lane: Lane): Wall[] {
+function laneWalls(lane: Lane, tagS: boolean): Wall[] {
   const w: Wall[] = [];
   const n = lane.center.length;
   const segs = lane.closed ? n : n - 1;
   for (let i = 0; i < segs; i++) {
-    w.push({ a: lane.wallLeft[i], b: lane.wallLeft[(i + 1) % n] });
-    w.push({ a: lane.wallRight[i], b: lane.wallRight[(i + 1) % n] });
+    const s = tagS ? lane.cum[i] : undefined;
+    w.push({ a: lane.wallLeft[i], b: lane.wallLeft[(i + 1) % n], s });
+    w.push({ a: lane.wallRight[i], b: lane.wallRight[(i + 1) % n], s });
   }
   return w;
 }
@@ -205,15 +237,20 @@ export function buildTrack(data: TrackData): Track {
 
   const sc = data.pit;
   const n = data.main.length;
-  const scPts = [data.main[sc.from], ...sc.points, data.main[sc.to]];
-  const pit = buildLane(limitCurvature(sampleSpline(scPts, false, data.main[(sc.from - 1 + n) % n], data.main[(sc.to + 1) % n], 8), 8, MIN_RADIUS_PIT, false), pitProfile(), false);
+  let pit: Lane | null = null;
+  if (sc) {
+    const scPts = [data.main[sc.from], ...sc.points, data.main[sc.to]];
+    pit = buildLane(limitCurvature(sampleSpline(scPts, false, data.main[(sc.from - 1 + n) % n], data.main[(sc.to + 1) % n], 8), 8, MIN_RADIUS_PIT, false), pitProfile(), false);
+  }
 
   // Walls: boundary segments whose midpoint lies inside the *other* lane are openings, drop them.
   const mid = (w: Wall): Vec2 => mul(add(w.a, w.b), 0.5);
-  const walls: Wall[] = [
-    ...laneWalls(main).filter((w) => !pointInPolygon(mid(w), pit.polygon)),
-    ...laneWalls(pit).filter((w) => !pointInPolygon(mid(w), main.polygon)),
-  ];
+  const walls: Wall[] = pit
+    ? [
+      ...laneWalls(main, true).filter((w) => !pointInPolygon(mid(w), pit!.polygon)),
+      ...laneWalls(pit, false).filter((w) => !pointInPolygon(mid(w), main.polygon)),
+    ]
+    : laneWalls(main, true);
 
   const finish = { pos: main.center[0], dir: main.tangent[0], width: main.width };
 
@@ -222,12 +259,19 @@ export function buildTrack(data: TrackData): Track {
     main.center.forEach((c, i) => { const d = dist(c, p); if (d < bd) { bd = d; best = i; } });
     return best;
   };
-  const i0 = sampleIndexOf(data.main[data.jump.from]), i1 = sampleIndexOf(data.main[data.jump.to]);
-  const k0 = Math.round(main.cum[i0] / TILE_WORLD), k1 = Math.round(main.cum[i1] / TILE_WORLD) - 1;
-  const jump: Jump = {
-    k0, k1, s0: k0 * TILE_WORLD, s1: (k1 + 1) * TILE_WORLD,
-    polygon: [...main.left.slice(i0, i1 + 1), ...main.right.slice(i0, i1 + 1).reverse()],
-  };
+  let jump: Jump | null = null;
+  if (data.jump) {
+    const i0 = sampleIndexOf(data.main[data.jump.from]), i1 = sampleIndexOf(data.main[data.jump.to]);
+    const k0 = Math.round(main.cum[i0] / TILE_WORLD), k1 = Math.round(main.cum[i1] / TILE_WORLD) - 1;
+    jump = {
+      k0, k1, s0: k0 * TILE_WORLD, s1: (k1 + 1) * TILE_WORLD,
+      polygon: [...main.left.slice(i0, i1 + 1), ...main.right.slice(i0, i1 + 1).reverse()],
+    };
+  }
+  const tunnels = (data.tunnels ?? []).map((t) => ({
+    k0: Math.round(main.cum[sampleIndexOf(data.main[t.from])] / TILE_WORLD),
+    k1: Math.round(main.cum[sampleIndexOf(data.main[t.to])] / TILE_WORLD),
+  }));
 
   const laneMarks: LaneMark[] = [];
   const tileOf = (t: number) => Math.round(t * main.length / TILE_WORLD);
@@ -236,7 +280,7 @@ export function buildTrack(data: TrackData): Track {
 
   const xs = main.polygon.map((p) => p.x), ys = main.polygon.map((p) => p.y);
   const bounds = { min: { x: Math.min(...xs), y: Math.min(...ys) }, max: { x: Math.max(...xs), y: Math.max(...ys) } };
-  return { data, main, pit, jump, walls, finish, laneMarks, bounds };
+  return { data, main, pit, jump, tunnels, walls, finish, laneMarks, bounds };
 }
 
 /** Where a point sits relative to a lane: distance along (s), signed lateral offset (d, + = right of travel), nearest sample index. */

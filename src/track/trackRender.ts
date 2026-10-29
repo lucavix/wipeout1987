@@ -5,21 +5,26 @@ import type { TileSet } from '@/gfx/tiles';
 import type { Track, Lane, Strip } from './track';
 
 let tiles: TileSet | null = null;
-let bgPattern: CanvasPattern | null = null;
+let bgPatterns = new Map<string, CanvasPattern>();
 
 /** Must be called with the loaded textures before anything is drawn. */
-export function setTiles(ts: TileSet): void { tiles = ts; bgPattern = null; bitmapFor = null; texCache = null; }
+export function setTiles(ts: TileSet): void { tiles = ts; bgPatterns = new Map(); chunksFor = null; texCache = null; }
 
 function getTiles(): TileSet {
   if (!tiles) throw new Error('texture non caricate: chiama setTiles(await loadTiles()) prima di disegnare');
   return tiles;
 }
 
-export function drawGround(ctx: CanvasRenderingContext2D, view: { x: number; y: number; w: number; h: number }): void {
-  if (!bgPattern) bgPattern = ctx.createPattern(getTiles().background, 'repeat')!;
+export function drawGround(ctx: CanvasRenderingContext2D, view: { x: number; y: number; w: number; h: number }, ground = 'background'): void {
+  let pat = bgPatterns.get(ground);
+  if (!pat) {
+    const t = getTiles();
+    pat = ctx.createPattern(t.grounds.get(ground) ?? t.background, 'repeat')!;
+    bgPatterns.set(ground, pat);
+  }
   ctx.save();
   ctx.scale(T.BG_PX, T.BG_PX);
-  ctx.fillStyle = bgPattern;
+  ctx.fillStyle = pat;
   ctx.fillRect(view.x / T.BG_PX, view.y / T.BG_PX, view.w / T.BG_PX + 1, view.h / T.BG_PX + 1);
   ctx.restore();
 }
@@ -28,16 +33,23 @@ export function drawGround(ctx: CanvasRenderingContext2D, view: { x: number; y: 
 function laneTile(t: TileSet, track: Track, lane: Lane, strip: Strip, k: number): HTMLCanvasElement {
   if (lane !== track.main) return t.pit;
   const j = track.jump;
-  if (k === j.k0) return t.jumpStart;
-  if (k === j.k1) return t.jumpEnd;
-  if (k > j.k0 && k < j.k1) return t.void;
+  if (j) {
+    if (k === j.k0) return t.jumpStart;
+    if (k === j.k1) return t.jumpEnd;
+    if (k > j.k0 && k < j.k1) return t.void;
+  }
   if (k === 0) return t.finish;
   for (const m of track.laneMarks) if (m.lane === strip.lane && k >= m.k0 && k < m.k1) return m.kind === 'speed' ? t.speed : t.weapon;
-  return t.lane;
+  return inTunnel(track, k) ? t.tunnel : t.lane;
 }
 
-function kerbTile(t: TileSet, lane: Lane, track: Track, strip: Strip): HTMLCanvasElement {
-  if (lane === track.main) return strip.side === 'left' ? t.kerbL : t.kerbR;
+const inTunnel = (track: Track, k: number): boolean => track.tunnels.some((tn) => k >= tn.k0 && k <= tn.k1);
+
+function kerbTile(t: TileSet, lane: Lane, track: Track, strip: Strip, k: number): HTMLCanvasElement {
+  if (lane === track.main) {
+    if (inTunnel(track, k)) return strip.side === 'left' ? t.tunnelKerbL : t.tunnelKerbR;
+    return strip.side === 'left' ? t.kerbL : t.kerbR;
+  }
   return strip.side === 'left' ? t.pitKerbL : t.pitKerbR;
 }
 
@@ -57,7 +69,7 @@ function tex(c: HTMLCanvasElement): Tex {
 
 /** Texture for (strip, tile k) of a lane, as raw pixels. */
 function stripTex(t: TileSet, track: Track, lane: Lane, strip: Strip, k: number): Tex {
-  if (strip.kind === 'kerb') return tex(kerbTile(t, lane, track, strip));
+  if (strip.kind === 'kerb') return tex(kerbTile(t, lane, track, strip, k));
   return tex(laneTile(t, track, lane, strip, k));
 }
 
@@ -67,16 +79,33 @@ function stripTex(t: TileSet, track: Track, lane: Lane, strip: Strip, k: number)
  * steps and write the texel at that world position. Later lanes overwrite earlier ones, which gives
  * the priority: pit kerb < main kerb < pit lane < main lane.
  */
-let bitmap: { canvas: HTMLCanvasElement; img: ImageData; x: number; y: number; w: number; h: number } | null = null;
-let bitmapFor: Track | null = null;
+/**
+ * The bitmap is split in square chunks allocated only where the track is, so a big circuit costs
+ * memory in proportion to its length, not to its bounding box.
+ */
+const CHUNK = 256; // bitmap px per chunk side
+interface Chunk { canvas: HTMLCanvasElement; img: ImageData; cx: number; cy: number }
+let chunks = new Map<string, Chunk>();
+let chunksFor: Track | null = null;
+
+function chunkAt(cx: number, cy: number): Chunk {
+  const key = `${cx},${cy}`;
+  let c = chunks.get(key);
+  if (!c) {
+    const canvas = document.createElement('canvas');
+    canvas.width = CHUNK; canvas.height = CHUNK;
+    c = { canvas, img: canvas.getContext('2d')!.createImageData(CHUNK, CHUNK), cx, cy };
+    chunks.set(key, c);
+  }
+  return c;
+}
 
 function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet): void {
-  const bm = bitmap!;
-  const out = bm.img.data;
   const n = lane.center.length;
   const segs = lane.closed ? n : n - 1;
   const step = T.TRACK_PX / 2;
   const tileLen = T.TILE_LEN * T.TRACK_PX;
+  let cur: Chunk | null = null;
   for (const strip of lane.strips) {
     if ((strip.kind === 'kerb') !== kerbs) continue;
     const dCount = Math.ceil(strip.w / step);
@@ -97,9 +126,11 @@ function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet): void {
         for (let di = 0; di <= dCount; di++) {
           const d = strip.off + Math.min(strip.w - 0.01, di * step);
           const v = Math.min(tx.h - 1, Math.floor((d - strip.off) / T.TRACK_PX));
-          const qx = Math.floor((px + nx * d - bm.x) / T.TRACK_PX), qy = Math.floor((py + ny * d - bm.y) / T.TRACK_PX);
-          if (qx < 0 || qy < 0 || qx >= bm.w || qy >= bm.h) continue;
-          const o = (qy * bm.w + qx) * 4, si4 = (v * tx.w + u) * 4;
+          const qx = Math.floor((px + nx * d) / T.TRACK_PX), qy = Math.floor((py + ny * d) / T.TRACK_PX);
+          const cx = Math.floor(qx / CHUNK), cy = Math.floor(qy / CHUNK);
+          if (!cur || cur.cx !== cx || cur.cy !== cy) cur = chunkAt(cx, cy);
+          const o = ((qy - cy * CHUNK) * CHUNK + (qx - cx * CHUNK)) * 4, si4 = (v * tx.w + u) * 4;
+          const out = cur.img.data;
           out[o] = tx.data[si4]; out[o + 1] = tx.data[si4 + 1]; out[o + 2] = tx.data[si4 + 2]; out[o + 3] = tx.data[si4 + 3];
         }
       }
@@ -107,35 +138,29 @@ function splatLane(track: Track, lane: Lane, kerbs: boolean, t: TileSet): void {
   }
 }
 
-/** Rasterise the whole track. Returns the bitmap size in pixels. */
+/** Rasterise the whole track. Returns a short description of what was allocated. */
 export function prerenderTrack(track: Track): string {
   const t = getTiles();
-  const b = track.bounds;
-  const margin = 100;
-  const x = Math.floor((b.min.x - margin) / T.TRACK_PX) * T.TRACK_PX, y = Math.floor((b.min.y - margin) / T.TRACK_PX) * T.TRACK_PX;
-  const w = Math.ceil((b.max.x + margin - x) / T.TRACK_PX), h = Math.ceil((b.max.y + margin - y) / T.TRACK_PX);
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const g = canvas.getContext('2d')!;
-  bitmap = { canvas, img: g.createImageData(w, h), x, y, w, h };
-  bitmapFor = track;
-  splatLane(track, track.pit, true, t);
+  chunks = new Map();
+  chunksFor = track;
+  if (track.pit) splatLane(track, track.pit, true, t);
   splatLane(track, track.main, true, t);
-  splatLane(track, track.pit, false, t);
+  if (track.pit) splatLane(track, track.pit, false, t);
   splatLane(track, track.main, false, t);
-  g.putImageData(bitmap.img, 0, 0);
-  return `${w}x${h}`;
+  for (const c of chunks.values()) c.canvas.getContext('2d')!.putImageData(c.img, 0, 0);
+  return `${chunks.size} chunks of ${CHUNK}x${CHUNK} px`;
 }
 
 export function drawTrack(ctx: CanvasRenderingContext2D, track: Track, view: { x: number; y: number; w: number; h: number }): void {
-  if (bitmapFor !== track || !bitmap) prerenderTrack(track);
-  const bm = bitmap!;
-  // Only the visible part of the bitmap, cut on whole source pixels so the pixel grid never shifts.
-  const sx0 = Math.max(0, Math.floor((view.x - bm.x) / T.TRACK_PX)), sy0 = Math.max(0, Math.floor((view.y - bm.y) / T.TRACK_PX));
-  const sx1 = Math.min(bm.w, Math.ceil((view.x + view.w - bm.x) / T.TRACK_PX)), sy1 = Math.min(bm.h, Math.ceil((view.y + view.h - bm.y) / T.TRACK_PX));
-  if (sx1 <= sx0 || sy1 <= sy0) return;
+  if (chunksFor !== track) prerenderTrack(track);
+  const side = CHUNK * T.TRACK_PX; // world units per chunk
+  const cx0 = Math.floor(view.x / side), cx1 = Math.floor((view.x + view.w) / side);
+  const cy0 = Math.floor(view.y / side), cy1 = Math.floor((view.y + view.h) / side);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(bm.canvas, sx0, sy0, sx1 - sx0, sy1 - sy0, bm.x + sx0 * T.TRACK_PX, bm.y + sy0 * T.TRACK_PX, (sx1 - sx0) * T.TRACK_PX, (sy1 - sy0) * T.TRACK_PX);
+  for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+    const c = chunks.get(`${cx},${cy}`);
+    if (c) ctx.drawImage(c.canvas, cx * side, cy * side, side, side);
+  }
 }
 
 function strokePolyline(ctx: CanvasRenderingContext2D, pts: Vec2[], closed: boolean): void {
@@ -149,7 +174,7 @@ function strokePolyline(ctx: CanvasRenderingContext2D, pts: Vec2[], closed: bool
 /** Debug: outline of every strip (the 5 "parallelepipeds") and of every tile slice along the track. */
 export function drawStripOutlines(ctx: CanvasRenderingContext2D, track: Track, zoom: number, view: { x: number; y: number; w: number; h: number }): void {
   const vx0 = view.x - 200, vy0 = view.y - 200, vx1 = view.x + view.w + 200, vy1 = view.y + view.h + 200;
-  for (const lane of [track.main, track.pit]) {
+  for (const lane of track.pit ? [track.main, track.pit] : [track.main]) {
     const n = lane.center.length;
     const edges: number[] = [lane.strips[0].off, ...lane.strips.map((s) => s.off + s.w)];
     ctx.lineWidth = 1.5 / zoom;
@@ -191,7 +216,7 @@ export function drawTrackDebug(ctx: CanvasRenderingContext2D, track: Track, zoom
   for (const w of track.walls) { ctx.beginPath(); ctx.moveTo(w.a.x, w.a.y); ctx.lineTo(w.b.x, w.b.y); ctx.stroke(); }
   ctx.strokeStyle = PAL.magenta; ctx.setLineDash([10 / zoom, 10 / zoom]);
   strokePolyline(ctx, track.main.center, true);
-  strokePolyline(ctx, track.pit.center, false);
+  if (track.pit) strokePolyline(ctx, track.pit.center, false);
   ctx.setLineDash([]);
   ctx.fillStyle = PAL.yellow;
   for (const q of track.data.main) ctx.fillRect(q.x - 4 / zoom, q.y - 4 / zoom, 8 / zoom, 8 / zoom);

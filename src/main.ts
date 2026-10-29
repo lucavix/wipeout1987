@@ -3,7 +3,7 @@ import { initInput, endInputFrame, pressed, down, axis } from '@/engine/input';
 import { Camera } from '@/engine/camera';
 import { add, mul, perp, angleOf } from '@/engine/math';
 import { buildTrack } from '@/track/track';
-import { SAGARMATHA } from '@/track/sagarmatha';
+import { TRACKS } from '@/track/tracks';
 import { drawGround, drawTrack, drawTrackDebug, drawStripOutlines, prerenderTrack, setTiles } from '@/track/trackRender';
 import { PAL } from '@/gfx/palette';
 import { loadTiles } from '@/gfx/tiles';
@@ -23,10 +23,12 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 const screen = createScreen(canvas);
 initInput();
 
-const track = buildTrack(SAGARMATHA);
+let trackIdx = 0;
+let track = buildTrack(TRACKS[trackIdx]);
 setTiles(await loadTiles());
 await loadShips();
-{ const t0 = performance.now(); const size = prerenderTrack(track); console.log(`track prerender: ${size} px in ${Math.round(performance.now() - t0)} ms`); }
+const prerender = () => { const t0 = performance.now(); const size = prerenderTrack(track); console.log(`track prerender: ${size} in ${Math.round(performance.now() - t0)} ms`); };
+prerender();
 const camera = new Camera();
 
 // ---- Start grid: 8 ships behind the finish line, two columns, staggered.
@@ -46,7 +48,7 @@ const fieldDefs: ShipDef[] = Array.from({ length: FIELD }, (_, i) => {
 });
 const ships: Ship[] = fieldDefs.map((def, i) => new Ship(def, gridPos(i), angleOf(track.finish.dir)));
 let player = ships[0];
-const wallGrid = new WallGrid(track.walls);
+let wallGrid = new WallGrid(track.walls, track.main.length);
 let race = new Race(ships, 3, track.main.length);
 const LAPS = 3;
 /** Autopilot per ship (A toggles it for the player). */
@@ -73,7 +75,19 @@ const newRace = (playerIdx = ships.indexOf(player)) => {
   camera.snapTo(player.pos, camera.params.zoomNear);
 };
 
-const refImg = new Image(); refImg.src = `${import.meta.env.BASE_URL}ref/sagarmatha.png`;
+const refImg = new Image();
+const loadRef = () => { const r = track.data.theme.ref; refImg.src = r ? `${import.meta.env.BASE_URL}${r.src}` : ''; };
+loadRef();
+/** Switch circuit (ship select screen): rebuild geometry, walls, grid positions and the race. */
+const setTrack = (i: number) => {
+  trackIdx = ((i % TRACKS.length) + TRACKS.length) % TRACKS.length;
+  track = buildTrack(TRACKS[trackIdx]);
+  prerender();
+  wallGrid = new WallGrid(track.walls, track.main.length);
+  ships.forEach((s, k) => { s.respawn(track, 0); s.pos = gridPos(k); s.heading = angleOf(track.finish.dir); });
+  race = new Race(ships, LAPS, track.main.length);
+  loadRef();
+};
 const styleImg = new Image(); styleImg.src = `${import.meta.env.BASE_URL}ref/pista.jpeg`;
 let showStyle = false;
 let showRef = false, showDebug = false, showSheet = false, freeCam = false, showStrips = false, paused = false;
@@ -109,7 +123,8 @@ camera.snapTo(player.pos, camera.params.zoomNear);
 
 // Debug hooks for the browser console / automated checks.
 const dbg = {
-  camera, track, ships, auto, PHYS, stats, projectiles,
+  camera, ships, auto, PHYS, stats, projectiles, setTrack,
+  get track() { return track; },
   get mode() { return mode; },
   get race() { return race; },
   look(x: number, y: number, zoom: number) { freeCam = true; camera.snapTo({ x, y }, zoom); },
@@ -175,6 +190,8 @@ function update(dt: number): void {
   if (mode === 'select') {
     if (pressed('ArrowLeft')) selectIdx = (selectIdx + ships.length - 1) % ships.length;
     if (pressed('ArrowRight')) selectIdx = (selectIdx + 1) % ships.length;
+    if (pressed('ArrowUp')) setTrack(trackIdx - 1);
+    if (pressed('ArrowDown')) setTrack(trackIdx + 1);
     if (pressed('Enter') || pressed('Space')) newRace(selectIdx);
     endInputFrame();
     return;
@@ -217,7 +234,7 @@ function update(dt: number): void {
   sparks.update(dt);
   for (const f of fx) f.update(dt);
   fx = fx.filter((f) => !f.done);
-  for (let i = 0; i < ships.length; i++) for (let j = i + 1; j < ships.length; j++) if (!ships[i].dead && !ships[j].dead) collideShips(ships[i], ships[j]);
+  for (let i = 0; i < ships.length; i++) for (let j = i + 1; j < ships.length; j++) if (!ships[i].dead && !ships[j].dead) collideShips(ships[i], ships[j], track.main.length);
   if (!freeCam) camera.follow(player.pos, player.forward, player.speed / PHYS.maxSpeed, dt);
   for (const s of ships) if (!s.dead) s.emitTrails(now, Math.min(1.5, s.speed / PHYS.maxSpeed));
   endInputFrame();
@@ -228,7 +245,7 @@ function drawSelect(): void {
   ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0);
   const centre = (txt: string, y: number, sc: number, col: string) => drawText(ctx, txt, (width - textWidth(txt, sc)) / 2, y, sc, col);
   centre('WIPEOUT 1987', 70, 10, PAL.cyan);
-  centre('SAGARMATHA  -  SCEGLI LA NAVE', 160, 3, PAL.silver);
+  centre(`PISTA: ${track.data.name.toUpperCase()}   (SU/GIU PER CAMBIARE)`, 160, 3, PAL.silver);
   const sc = 5, gap = 70 * sc;
   const x0 = (width - ships.length * gap + gap - 50 * sc) / 2, y0 = height / 2 - 150;
   ships.forEach((s, i) => {
@@ -244,7 +261,7 @@ function drawSelect(): void {
       ctx.fillStyle = sel ? PAL.cyan : PAL.grey; ctx.fillRect(x + 60, by + 1, Math.round(100 * v), 8);
     });
   });
-  centre('SINISTRA/DESTRA: SCEGLI   INVIO: GARA', height - 80, 3, PAL.white);
+  centre('SINISTRA/DESTRA: NAVE   SU/GIU: PISTA   INVIO: GARA', height - 80, 3, PAL.white);
   centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
 }
 
@@ -253,11 +270,11 @@ function render(): void {
   beginFrame(screen, PAL.black);
   if (mode === 'select') { drawSelect(); return; }
   camera.apply(screen);
-  drawGround(ctx, camera.viewRect(screen));
+  drawGround(ctx, camera.viewRect(screen), track.data.theme.ground);
   drawTrack(ctx, track, camera.viewRect(screen));
   if (showStrips) drawStripOutlines(ctx, track, camera.zoom, camera.viewRect(screen));
   if (showDebug) drawTrackDebug(ctx, track, camera.zoom);
-  if (showRef && refImg.naturalWidth > 0) { ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * 10, refImg.height * 10); ctx.globalAlpha = 1; }
+  if (showRef && refImg.naturalWidth > 0 && track.data.theme.ref) { const r = track.data.theme.ref; ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * r.sx, refImg.height * r.sy); ctx.globalAlpha = 1; }
   for (const s of ships) for (const t of s.trails) t.draw(ctx, now);
   for (const s of ships) s.draw(ctx);
   for (const p of projectiles) drawProjectile(ctx, p, now);

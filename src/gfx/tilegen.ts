@@ -116,5 +116,39 @@ export const TILE_SPECS: TileSpec[] = [
   } },
 ];
 
+/** Low-frequency, tileable (period 128) blotch noise for terrain. */
+const blotch = (x: number, y: number): number => {
+  const w = (v: number) => ((v % BG_SIZE) + BG_SIZE) % BG_SIZE;
+  const a = noise(w(x) >> 5, w(y) >> 5), b = noise(w(x + 16) >> 4, w(y + 16) >> 4), c = noise(w(x) >> 2, w(y) >> 2);
+  return a * 0.5 + b * 0.3 + c * 0.2;
+};
+
+TILE_SPECS.push(
+  { name: 'tunnel', w: TILE_LEN, h: LANE_PX, note: 'corsia in galleria: asfalto scuro, luci cyan sui bordi, una lampada ogni 16 px', px: (x, y) => {
+    if (y === 0 || y === LANE_PX - 1) return (x % 8) < 5 ? C.cyan : C.cyanDim;
+    if (y === 1 || y === LANE_PX - 2) return '#0c1a28';
+    if (x % 16 === 0 && y > 4 && y < LANE_PX - 5) return '#3a3f5a';
+    if (noise(x + 3, y + 11) < 0.03) return '#1a1c2a';
+    return '#101018';
+  } },
+  { name: 'tunnel_kerb_left', w: TILE_LEN, h: KERB_PX, note: 'bordo sinistro in galleria (cemento, neon cyan); il destro e\' specchiato', px: (x, y) => {
+    if (y <= 1) return '#15161e';
+    if (y === 2 || y === 3) return C.cyan;
+    if (y === 4) return '#0c1a28';
+    if (y <= 17) return noise(x * 5, y * 3) < 0.12 ? '#363a4a' : '#2a2d3a';
+    if (y === 18) return (x % 6) < 3 ? C.yellow : C.ink;
+    return '#1a1a2e';
+  } },
+  { name: 'ground_altima', w: BG_SIZE, h: BG_SIZE, note: 'sfondo Altima VII: colline canadesi di notte, verde scuro screziato con rocce e abeti', px: (x, y) => {
+    const v = blotch(x, y), n = noise(x, y);
+    if (n < 0.004) return '#3b4a3e';                 // sassi
+    if (n < 0.009) return '#0a1a0c';                 // abeti
+    if (v < 0.32) return '#0f2414';
+    if (v < 0.5) return '#15301a';
+    if (v < 0.66) return '#1b3a20';
+    return '#224626';
+  } },
+);
+
 /** Optional PNGs that override a derived tile when present. */
 export const OPTIONAL_TILES = ['kerb_right', 'pit_kerb_right'];

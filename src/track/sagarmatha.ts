@@ -1,4 +1,4 @@
-import type { Vec2 } from '@/engine/math';
+import type { TrackData } from './track';
 
 /**
  * Sagarmatha — linea centrale ricavata dal bitmap ref/sagarmatha.png (367x840 px).
@@ -7,21 +7,10 @@ import type { Vec2 } from '@/engine/math';
  * antiorario sullo schermo: sud lungo il rettilineo sinistro, tornante in basso, nord lungo
  * il rettilineo destro (con il salto), poi il giro largo in alto. La deviazione curva in basso a sinistra e' la corsia box (solo scenografica).
  */
-export interface TrackData {
-  name: string;
-  /** Linea centrale del loop principale, chiusa (l'ultimo punto si ricongiunge al primo). */
-  main: Vec2[];
-  /** Corsia box: si stacca da main[from] e rientra in main[to]; i punti sono quelli intermedi. */
-  pit: { from: number; to: number; points: Vec2[] };
-  /** Salto: la pista manca tra main[from] (stacco) e main[to] (atterraggio). */
-  jump: { from: number; to: number };
-  /** Speed pad e weapon pad: posizione come frazione t in [0,1) lungo main e corsia 0..2 (0 = sinistra). */
-  speedPads: { t: number; lane: number }[];
-  weaponPads: { t: number; lane: number }[];
-}
-
 export const SAGARMATHA: TrackData = {
+  id: 'sagarmatha',
   name: 'Sagarmatha',
+  theme: { ground: 'background', ref: { src: 'ref/sagarmatha.png', sx: 10, sy: 10 } },
   main: [
   { x: 890, y: 5220 }, { x: 900, y: 5820 }, { x: 890, y: 6960 }, { x: 890, y: 7060 },
   { x: 890, y: 7340 }, { x: 910, y: 7520 }, { x: 1000, y: 7730 }, { x: 1080, y: 7850 },

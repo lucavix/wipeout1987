@@ -20,8 +20,11 @@ original pixel art inspired by the games.
 
 ## What it is
 
-- A single circuit, **Sagarmatha**, traced from the original layout: a long left straight, a hairpin,
-  a jump on the right straight, a wide loop at the top and a pit lane that recharges your energy.
+- Two circuits. **Altima VII**, the first track of the 1995 game, traced from VGCartography's track
+  map: the long start straight, the climb on the right, the big loop, the covered descent, the road
+  over the mountain and the tunnel that passes under it back to the start line. **Sagarmatha**, with
+  a long left straight, a hairpin, a jump on the right straight and a wide loop at the top. Both have
+  a pit lane that recharges your energy. Up/down on the ship select screen picks the circuit.
 - Vector track geometry with chunky 8-bit textures: five parallel strips (two neon kerbs, three lanes),
   one PNG texture per strip, every world pixel mapped to exactly one texel.
 - Anti-gravity handling: thrust, brake, steering that tightens as you slow down, left/right airbrakes
@@ -46,6 +49,7 @@ original pixel art inspired by the games.
 | Z / X | Left / right airbrake |
 | Space | Use item |
 | Esc | Pause |
+| Up / down (select screen) | Choose the circuit |
 | Enter | Start the race / back to ship select |
 | A | Autopilot (handy to watch the track) |
 | F / O | Free camera / whole track |
@@ -66,8 +70,15 @@ Then open http://127.0.0.1:5187/. `npm run build` produces a static site in `dis
 
 - Vite + TypeScript, Canvas 2D with `imageSmoothingEnabled = false`, fixed 60 Hz update loop.
 - `src/track/` builds the track from a hand-traced centreline (Catmull-Rom spline, curvature
-  limiting, strip profile, walls, jump and pad tiles) and rasterises it once at start-up into a single
-  world-aligned bitmap by forward splatting; each frame only the visible rectangle is blitted.
+  limiting, strip profile, walls, jump, tunnel and pad tiles) and rasterises it once at start-up into
+  world-aligned bitmap chunks allocated only where the track is; each frame only the visible chunks
+  are blitted. A circuit may cross over itself: every wall knows its distance along the lap and only
+  acts on ships that are on that part of the track, so a tunnel can pass under another section.
+- `tools/trace_track.py` turns a track map into a centreline: rough points are snapped to the centre
+  of the road surface detected in the image, the overlay `*_trace.png` is there to check the result,
+  and the script writes `src/track/<id>.ts`. Altima VII came from
+  [VGCartography's Wipeout (1995) map](https://www.deviantart.com/vgcartography/art/Wipeout-1995-Tracks-and-Craft-1159706214)
+  (not included in the repo; put the panel in `ref/vgcartography/altima.png` to re-trace).
 - `src/game/physics.ts` is the handling model, `src/game/weapons.ts` the items, `src/game/ai.ts` the
   opponent drivers, `src/game/race.ts` laps and ranking.
 - Ships are PNG sprites in `public/ships/` (nose up, transparent background), loaded at start-up;

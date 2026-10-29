@@ -1,7 +1,7 @@
 import { add, dot, fromAngle, len, mul, sub, type Vec2 } from '@/engine/math';
 import type { Ship } from './ship';
 import type { Track, Wall } from '@/track/track';
-import { laneIndexAt, projectOnLane, tileOfS } from '@/track/track';
+import { alongDist, laneIndexAt, projectOnLane, tileOfS } from '@/track/track';
 import { pointInPolygon } from '@/engine/math';
 import { randomItem } from './weapons';
 
@@ -40,9 +40,13 @@ export interface Controls { thrust: number; steer: number; airL: boolean; airR: 
 export const NO_CONTROLS: Controls = { thrust: 0, steer: 0, airL: false, airR: false };
 
 /** Uniform grid over the wall segments so each ship only tests nearby walls. */
+/** How far (along the track) a main-lane wall stays active for a ship: beyond this it belongs to another
+ *  part of the circuit that merely crosses or runs close by (tunnel under a bridge). */
+export const WALL_REACH = 700;
+
 export class WallGrid {
   private cells = new Map<string, Wall[]>();
-  constructor(walls: Wall[], public cell = 256) {
+  constructor(walls: Wall[], public laneLength: number, public cell = 256) {
     for (const w of walls) {
       const x0 = Math.floor(Math.min(w.a.x, w.b.x) / cell), x1 = Math.floor(Math.max(w.a.x, w.b.x) / cell);
       const y0 = Math.floor(Math.min(w.a.y, w.b.y) / cell), y1 = Math.floor(Math.max(w.a.y, w.b.y) / cell);
@@ -139,11 +143,11 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
   ship.hint = hit.i; ship.s = hit.s; ship.d = hit.d;
   ship.laneIdx = laneIndexAt(track.main, hit.d);
   ship.tile = tileOfS(hit.s);
-  ship.inPit = hit.dist > 150 && pointInPolygon(ship.pos, track.pit.innerPolygon);
+  ship.inPit = !!track.pit && hit.dist > 150 && pointInPolygon(ship.pos, track.pit.innerPolygon);
   if (ship.inPit) ship.energy = Math.min(100, ship.energy + P.pitRecharge * dt);
 
   // Jump: over the void tiles the ship flies (no control); too slow and it falls back to the lip.
-  const j = track.jump;
+  const j = track.jump ?? { s0: -1, s1: -1 };
   const overGap = ship.laneIdx >= 0 && ship.s > j.s0 && ship.s < j.s1 && hit.dist < track.main.width;
   if (overGap && !ship.airborne) {
     if (ship.speed < P.jumpMinSpeed) { ev.fell = true; destroy(j.s0 - P.jumpRespawnBack); return ev; }
@@ -152,8 +156,11 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
   if (ship.airborne) ship.airT += dt;
 
   // Off the track (landed outside, or slipped through a wall): destroyed, restart on the centreline.
-  if (!ship.airborne && !pointInPolygon(ship.pos, track.main.innerPolygon) && !pointInPolygon(ship.pos, track.pit.innerPolygon)) {
-    const inGap = ship.s > j.s0 - 40 && ship.s < j.s1 + 200;
+  // Measured as lateral distance from the ship's own section of the centreline (not with the track
+  // polygon, which self-intersects where a tunnel crosses under another part of the circuit).
+  const innerHalf = track.main.width / 2 - track.main.strips[0].w;
+  if (!ship.airborne && Math.abs(ship.d) > innerHalf + 10 && !(track.pit && pointInPolygon(ship.pos, track.pit.innerPolygon))) {
+    const inGap = track.jump !== null && ship.s > j.s0 - 40 && ship.s < j.s1 + 200;
     destroy(inGap ? j.s0 - P.jumpRespawnBack : ship.s);
     return ev;
   }
@@ -186,6 +193,7 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
 function resolveWalls(ship: Ship, grid: WallGrid, dt: number, ev: StepEvents): void {
   const P = PHYS, r = ship.radius;
   for (const w of grid.near(ship.pos, r)) {
+    if (w.s !== undefined && alongDist(w.s, ship.s, grid.laneLength) > WALL_REACH) continue;
     const ab = sub(w.b, w.a), l2 = ab.x * ab.x + ab.y * ab.y || 1;
     const t = Math.max(0, Math.min(1, ((ship.pos.x - w.a.x) * ab.x + (ship.pos.y - w.a.y) * ab.y) / l2));
     const q = add(w.a, mul(ab, t));
@@ -226,9 +234,11 @@ function resolveWalls(ship: Ship, grid: WallGrid, dt: number, ev: StepEvents): v
 
 
 /** Ship vs ship: equal push apart, swap the normal velocity components (elastic-ish). */
-export function collideShips(a: Ship, b: Ship): void {
+export function collideShips(a: Ship, b: Ship, laneLength: number): void {
   const d = sub(b.pos, a.pos), l = len(d), min = a.radius + b.radius;
   if (l === 0 || l >= min) return;
+  // On different parts of the circuit (one in a tunnel under the other): no contact.
+  if (alongDist(a.s, b.s, laneLength) > WALL_REACH) return;
   const n = mul(d, 1 / l), push = (min - l) / 2;
   a.pos = sub(a.pos, mul(n, push)); b.pos = add(b.pos, mul(n, push));
   const va = dot(a.vel, n), vb = dot(b.vel, n);

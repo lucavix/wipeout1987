@@ -64,7 +64,7 @@ export class Ship {
   respawn(track: Track, s: number): void {
     const at = laneAt(track.main, s / track.main.length);
     this.pos = { ...at.pos }; this.heading = angleOf(at.dir);
-    this.vel = { x: 0, y: 0 }; this.speed = 0; this.airborne = false; this.hint = -1; this.padTile = -1;
+    this.vel = { x: 0, y: 0 }; this.speed = 0; this.airborne = false; this.hint = -1; this.padTile = -1; this.s = at.s;
     for (const t of this.trails) t.clear();
   }
 

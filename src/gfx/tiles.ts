@@ -11,7 +11,10 @@ export interface TileSet {
   lane: HTMLCanvasElement; speed: HTMLCanvasElement; weapon: HTMLCanvasElement; finish: HTMLCanvasElement;
   jumpStart: HTMLCanvasElement; void: HTMLCanvasElement; jumpEnd: HTMLCanvasElement;
   pit: HTMLCanvasElement; pitKerbL: HTMLCanvasElement; pitKerbR: HTMLCanvasElement;
+  tunnel: HTMLCanvasElement; tunnelKerbL: HTMLCanvasElement; tunnelKerbR: HTMLCanvasElement;
   background: HTMLCanvasElement;
+  /** Off-track ground textures by name ('background' plus every ground_*.png), chosen per track. */
+  grounds: Map<string, HTMLCanvasElement>;
 }
 
 export function bakeSpec(spec: TileSpec): HTMLCanvasElement {
@@ -70,6 +73,8 @@ export async function loadTiles(): Promise<TileSet> {
     lane: g('lane'), speed: g('speed_pad'), weapon: g('weapon_pad'), finish: g('finish'),
     jumpStart: g('jump_start'), void: g('void'), jumpEnd: g('jump_end'),
     pit: g('pit_lane'), pitKerbL: g('pit_kerb_left'), pitKerbR: pitKerbR ?? flipY(g('pit_kerb_left')),
+    tunnel: g('tunnel'), tunnelKerbL: g('tunnel_kerb_left'), tunnelKerbR: flipY(g('tunnel_kerb_left')),
     background: g('background'),
+    grounds: new Map([...got].filter(([n]) => n === 'background' || n.startsWith('ground_'))),
   };
 }
