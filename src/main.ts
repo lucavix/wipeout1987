@@ -2,7 +2,7 @@ import { createScreen, beginFrame } from '@/engine/canvas';
 import { initInput, endInputFrame, pressed, down, axis } from '@/engine/input';
 import { Camera } from '@/engine/camera';
 import { add, mul, perp, angleOf } from '@/engine/math';
-import { buildTrack } from '@/track/track';
+import { buildTrack, TRACK_SCALE } from '@/track/track';
 import { TRACKS } from '@/track/tracks';
 import { drawGround, drawTrack, drawTrackDebug, drawStripOutlines, prerenderTrack, setTiles } from '@/track/trackRender';
 import { PAL } from '@/gfx/palette';
@@ -325,7 +325,7 @@ function drawTrackSelect(): void {
   ctx.fillStyle = PAL.red; ctx.fillRect(s0.x - 3, s0.y - 3, 6, 6);
   let len = 0;
   for (let i = 0; i < n; i++) len += Math.hypot(d.main[(i + 1) % n].x - d.main[i].x, d.main[(i + 1) % n].y - d.main[i].y);
-  drawText(ctx, `${d.name.toUpperCase()}   ${(len / 1000).toFixed(1)} KM${d.jump ? '   SALTO' : ''}${d.tunnels?.length ? '   GALLERIA' : ''}`, bx + 16, by + bh - 30, 2, PAL.silver);
+  drawText(ctx, `${d.name.toUpperCase()}   ${(len * TRACK_SCALE / 1000).toFixed(1)} KM${d.jump ? '   SALTO' : ''}${d.tunnels?.length ? '   GALLERIA' : ''}`, bx + 16, by + bh - 30, 2, PAL.silver);
   centre('SU/GIU: PISTA   INVIO: AVANTI   ESC: CLASSE', height - 80, 3, PAL.white);
   centre('FRECCE GUIDA  Z/X AIRBRAKE  SPAZIO ARMA  ESC PAUSA', height - 48, 2, PAL.grey);
 }
@@ -366,7 +366,7 @@ function render(): void {
   drawTrack(ctx, track, camera.viewRect(screen));
   if (showStrips) drawStripOutlines(ctx, track, camera.zoom, camera.viewRect(screen));
   if (showDebug) drawTrackDebug(ctx, track, camera.zoom);
-  if (showRef && refImg.naturalWidth > 0 && track.data.theme.ref) { const r = track.data.theme.ref; ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * r.sx, refImg.height * r.sy); ctx.globalAlpha = 1; }
+  if (showRef && refImg.naturalWidth > 0 && track.data.theme.ref) { const r = track.data.theme.ref; ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * r.sx * TRACK_SCALE, refImg.height * r.sy * TRACK_SCALE); ctx.globalAlpha = 1; }
   for (const s of ships) for (const t of s.trails) t.draw(ctx, now);
   for (const s of ships) s.draw(ctx);
   for (const p of projectiles) drawProjectile(ctx, p, now);

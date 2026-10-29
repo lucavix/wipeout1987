@@ -95,11 +95,13 @@ export const alongDist = (a: number, b: number, len: number): number => {
   return Math.min(d, len - d);
 };
 
+/** Geometry scale applied to the traced centrelines (track data is authored at scale 1). */
+export const TRACK_SCALE = 2;
 const SAMPLE_STEP = 20;
 /** Minimum bend radius of the centrelines (must exceed half the track width). */
-const MIN_RADIUS_MAIN = 280;
-const MIN_RADIUS_PIT = 130;
-export const TILE_WORLD = TILE_LEN * TRACK_PX; // 80
+const MIN_RADIUS_MAIN = 280 * TRACK_SCALE;
+const MIN_RADIUS_PIT = 130 * TRACK_SCALE;
+export const TILE_WORLD = TILE_LEN * TRACK_PX; // 160
 export const PAD_TILES = 2;
 
 /** Main track profile: kerb | lane | lane | lane | kerb. */
@@ -236,7 +238,9 @@ function laneWalls(lane: Lane, tagS: boolean): Wall[] {
   return w;
 }
 
-export function buildTrack(data: TrackData): Track {
+export function buildTrack(raw: TrackData): Track {
+  const S = (p: Vec2): Vec2 => ({ x: p.x * TRACK_SCALE, y: p.y * TRACK_SCALE });
+  const data: TrackData = { ...raw, main: raw.main.map(S), pit: raw.pit ? { ...raw.pit, points: raw.pit.points.map(S) } : null };
   const main = buildLane(limitCurvature(sampleSpline(data.main, true), SAMPLE_STEP, MIN_RADIUS_MAIN, true), mainProfile(), true);
 
   const sc = data.pit;
