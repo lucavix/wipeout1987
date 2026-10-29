@@ -15,7 +15,7 @@ import { Ship, SHIP_TILT } from '@/game/ship';
 import { PHYS, NO_CONTROLS, WallGrid, collideShips, stepShip, type Controls } from '@/game/physics';
 import { Race } from '@/game/race';
 import { autopilot } from '@/game/autopilot';
-import { Explosion } from '@/gfx/fx';
+import { Explosion, Sparks } from '@/gfx/fx';
 import { DebugPanel } from '@/game/debug';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -43,6 +43,8 @@ const LAPS = 3;
 /** Autopilot per ship (A toggles it for the player; the other ships use it in phase 3). */
 const auto = new Set<Ship>();
 let fx: Explosion[] = [];
+const sparks = new Sparks();
+const stats = { graze: 0, hits: 0, explosions: 0 };
 const newRace = () => {
   ships.forEach((s, i) => { s.respawn(track, 0); s.pos = gridPos(i); s.heading = angleOf(track.finish.dir); s.energy = 100; });
   race = new Race(ships, LAPS, track.main.length);
@@ -68,6 +70,8 @@ const panel = new DebugPanel()
   .add({ obj: PHYS, key: 'airbrakeTurn', min: 0, max: 4 })
   .add({ obj: PHYS, key: 'airbrakeGrip', min: 0.5, max: 10 })
   .add({ obj: PHYS, key: 'bounce', min: 0, max: 1 })
+  .add({ obj: PHYS, key: 'grazeDeg', min: 0, max: 60 })
+  .add({ obj: PHYS, key: 'grazeOutDeg', min: 0, max: 15 })
   .add({ obj: PHYS, key: 'padBoost', min: 0, max: 1200 })
   .add({ obj: SHIP_TILT, key: 'rollDeg', min: 0, max: 85 })
   .add({ obj: SHIP_TILT, key: 'pitchDeg', min: 0, max: 85 })
@@ -82,7 +86,7 @@ camera.snapTo(player.pos, camera.params.zoomNear);
 
 // Debug hooks for the browser console / automated checks.
 const dbg = {
-  camera, track, ships, auto, PHYS,
+  camera, track, ships, auto, PHYS, stats,
   get race() { return race; },
   look(x: number, y: number, zoom: number) { freeCam = true; camera.snapTo({ x, y }, zoom); },
   follow() { freeCam = false; },
@@ -167,8 +171,12 @@ function update(dt: number): void {
       else if (s === player) c = dbg.input ?? { thrust: axis('ArrowDown', 'ArrowUp'), steer: axis('ArrowLeft', 'ArrowRight'), airL: down('KeyZ'), airR: down('KeyX') };
     }
     const ev = stepShip(s, c, track, wallGrid, dt);
+    if (ev.graze) { stats.graze++; sparks.emit(ev.graze.pos, ev.graze.dir, ev.graze.n, 4, s.speed); }
+    if (ev.wallHit) stats.hits++;
+    if (ev.exploded) { stats.explosions++; }
     if (ev.exploded) { fx.push(new Explosion(s.pos, s.def.trailColor)); for (const t of s.trails) t.clear(); }
   }
+  sparks.update(dt);
   for (const f of fx) f.update(dt);
   fx = fx.filter((f) => !f.done);
   for (let i = 0; i < ships.length; i++) for (let j = i + 1; j < ships.length; j++) if (!ships[i].dead && !ships[j].dead) collideShips(ships[i], ships[j]);
@@ -188,6 +196,7 @@ function render(): void {
   if (showRef && refImg.complete) { ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * 10, refImg.height * 10); ctx.globalAlpha = 1; }
   for (const s of ships) for (const t of s.trails) t.draw(ctx, now);
   for (const s of ships) s.draw(ctx);
+  sparks.draw(ctx);
   for (const f of fx) f.draw(ctx);
 
   const e = race.entry(player);

@@ -19,9 +19,10 @@ export const PHYS = {
   bounce: 0.35,       // wall restitution
   wallFriction: 0.88, // tangential speed kept after a wall hit
   wallDamage: 30,     // energy (%) lost by a head-on hit at max speed
+  grazeDeg: 20,       // contacts shallower than this just scrape: sparks, no speed loss, no damage
+  grazeOutDeg: 3,     // ...and the velocity is set parallel to the wall, tilted this much away from it
   hitThreshold: 0.08, // normal speed (fraction of maxSpeed) below which a contact is a grind, not a hit
   grindFriction: 1.5, // 1/s tangential slowdown while grinding
-  grindDamage: 3,     // energy/s while grinding
   padBoost: 450,      // u/s added by a speed pad
   padMax: 1.3,        // speed pads can push you up to padMax * maxSpeed
   boostDecay: 1.6,    // 1/s decay of speed above maxSpeed
@@ -56,11 +57,11 @@ export class WallGrid {
   }
 }
 
-export interface StepEvents { wallHit: number; padHit: boolean; fell: boolean; landed: boolean; exploded: boolean }
+export interface StepEvents { wallHit: number; padHit: boolean; fell: boolean; landed: boolean; exploded: boolean; graze: { pos: Vec2; dir: Vec2; n: Vec2 } | null }
 
 /** Advance one ship by dt. Returns what happened (for sound/fx/HUD). */
 export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, dt: number): StepEvents {
-  const ev: StepEvents = { wallHit: 0, padHit: false, fell: false, landed: false, exploded: false };
+  const ev: StepEvents = { wallHit: 0, padHit: false, fell: false, landed: false, exploded: false, graze: null };
   const P = PHYS, st = ship.def.stats;
   ship.spawnBlink = Math.max(0, ship.spawnBlink - dt);
   if (ship.dead > 0) {
@@ -168,18 +169,27 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
       ship.pos = add(ship.pos, mul(n, r - d));
       const vn = dot(ship.vel, n);
       if (vn < 0) {
-        const tangent = { x: -n.y, y: n.x };
+        // Tangent pointing the way the ship travels.
+        let tangent = { x: -n.y, y: n.x };
+        let vt = dot(ship.vel, tangent);
+        if (vt < 0) { tangent = { x: -tangent.x, y: -tangent.y }; vt = -vt; }
+        const angle = Math.atan2(-vn, vt) * 180 / Math.PI;
         const impact = -vn / P.maxSpeed;
-        if (impact > P.hitThreshold) {
+        if (angle < P.grazeDeg) {
+          // Scrape: keep the speed, run parallel to the wall tilted slightly away from it, throw sparks.
+          const a = P.grazeOutDeg * Math.PI / 180, sp = ship.speed;
+          const dir = { x: tangent.x * Math.cos(a) + n.x * Math.sin(a), y: tangent.y * Math.cos(a) + n.y * Math.sin(a) };
+          ship.vel = mul(dir, sp);
+          ev.graze = { pos: q, dir: tangent, n };
+        } else if (impact > P.hitThreshold) {
           // A real hit: bounce back, lose some tangential speed, take damage.
-          ship.vel = add(mul(n, -vn * P.bounce), mul(tangent, dot(ship.vel, tangent) * P.wallFriction));
+          ship.vel = add(mul(n, -vn * P.bounce), mul(tangent, vt * P.wallFriction));
           ev.wallHit = Math.max(ev.wallHit, impact);
           ship.energy = Math.max(0, ship.energy - P.wallDamage * impact);
           ship.hitFlash = 0.15;
         } else {
-          // Grinding along the wall: slide, with light friction and slow damage.
-          ship.vel = mul(tangent, dot(ship.vel, tangent) * Math.exp(-P.grindFriction * dt));
-          ship.energy = Math.max(0, ship.energy - P.grindDamage * dt);
+          // Pushing slowly into the wall: slide along it.
+          ship.vel = mul(tangent, vt * Math.exp(-P.grindFriction * dt));
         }
       }
     }

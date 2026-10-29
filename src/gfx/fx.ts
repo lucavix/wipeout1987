@@ -48,3 +48,36 @@ export class Explosion {
     ctx.globalAlpha = 1;
   }
 }
+
+interface Spark { x: number; y: number; vx: number; vy: number; life: number; t: number; color: string }
+
+/** Persistent pool of wall-scrape sparks: small bright squares thrown along the wall. */
+export class Sparks {
+  private parts: Spark[] = [];
+  constructor(public max = 400) {}
+  /** Emit n sparks at `pos`, mostly along `dir` (unit, direction of travel) and a bit outward `n`. */
+  emit(pos: Vec2, dir: Vec2, n: Vec2, count: number, speed: number): void {
+    for (let i = 0; i < count; i++) {
+      const back = -0.2 - Math.random() * 0.7, side = (Math.random() - 0.15) * 1.2;
+      const sp = speed * (0.15 + Math.random() * 0.35);
+      this.parts.push({
+        x: pos.x, y: pos.y,
+        vx: (dir.x * back + n.x * side) * sp, vy: (dir.y * back + n.y * side) * sp,
+        life: 0.25 + Math.random() * 0.35, t: 0,
+        color: Math.random() < 0.5 ? PAL.yellow : Math.random() < 0.6 ? PAL.white : PAL.orange,
+      });
+    }
+    if (this.parts.length > this.max) this.parts.splice(0, this.parts.length - this.max);
+  }
+  update(dt: number): void {
+    for (const p of this.parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9; }
+    this.parts = this.parts.filter((p) => p.t < p.life);
+  }
+  draw(ctx: CanvasRenderingContext2D): void {
+    for (const p of this.parts) {
+      const s = p.t / p.life < 0.5 ? 8 : 5;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(Math.round(p.x - s / 2), Math.round(p.y - s / 2), s, s);
+    }
+  }
+}
