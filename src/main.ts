@@ -75,7 +75,7 @@ const newRace = (playerIdx = ships.indexOf(player)) => {
   projectiles.length = 0; fx = [];
   race = new Race(ships, LAPS, track.main.length);
   mode = 'race';
-  camera.snapTo(player.pos, camera.params.zoomNear);
+  camera.snapTo(player.pos, camera.params.zoomNear, -Math.PI / 2 - player.heading);
 };
 
 const refImg = new Image();
@@ -102,6 +102,8 @@ const panel = new DebugPanel()
   .add({ obj: camera.params as unknown as Record<string, number>, key: 'lookAhead', min: 0, max: 800 })
   .add({ obj: camera.params as unknown as Record<string, number>, key: 'posLambda', min: 1, max: 20 })
   .add({ obj: camera.params as unknown as Record<string, number>, key: 'zoomLambda', min: 0.5, max: 10 })
+  .add({ obj: camera.params as unknown as Record<string, number>, key: 'tiltDeg', min: 0, max: 180 })
+  .add({ obj: camera.params as unknown as Record<string, number>, key: 'rotLambda', min: 0, max: 10 })
   .add({ obj: PHYS, key: 'maxSpeed', min: 300, max: 3000 })
   .add({ obj: PHYS, key: 'thrust', min: 200, max: 3000 })
   .add({ obj: PHYS, key: 'turnLow', min: 0.5, max: 6 })
@@ -120,9 +122,9 @@ const panel = new DebugPanel()
 const fitTrack = () => {
   const b = track.bounds;
   const w = b.max.x - b.min.x + 400, h = b.max.y - b.min.y + 400;
-  camera.snapTo({ x: (b.min.x + b.max.x) / 2, y: (b.min.y + b.max.y) / 2 }, Math.min(screen.width / w, screen.height / h));
+  camera.snapTo({ x: (b.min.x + b.max.x) / 2, y: (b.min.y + b.max.y) / 2 }, Math.min(screen.width / w, screen.height / h), 0);
 };
-camera.snapTo(player.pos, camera.params.zoomNear);
+camera.snapTo(player.pos, camera.params.zoomNear, -Math.PI / 2 - player.heading);
 
 // Debug hooks for the browser console / automated checks.
 const dbg = {
