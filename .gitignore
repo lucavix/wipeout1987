@@ -1,2 +1,5 @@
 node_modules
 dist
+# Reference images (copyrighted screenshots used only for tracing/debug overlays): kept local
+ref/
+public/ref
