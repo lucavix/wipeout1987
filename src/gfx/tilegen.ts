@@ -5,12 +5,12 @@
  *
  * Tile space: x = along the direction of travel, y = across the strip (0 = outer/left edge).
  */
-export const TRACK_PX = 5;                    // world units per texture pixel (was 2.5: track doubled, ships unchanged)
-export const TILE_LEN = 32;                   // px along the track -> 160 world units per tile
+export const TRACK_PX = 3.75;                 // world units per texture pixel (was 2.5: track x1.5, ships unchanged)
+export const TILE_LEN = 32;                   // px along the track -> 120 world units per tile
 export const KERB_PX = 22, LANE_PX = 36, PIT_KERB_PX = 12;
-export const KERB_W = KERB_PX * TRACK_PX;     // 110
-export const LANE_W = LANE_PX * TRACK_PX;     // 180
-export const PIT_KERB_W = PIT_KERB_PX * TRACK_PX; // 60
+export const KERB_W = KERB_PX * TRACK_PX;     // 82.5
+export const LANE_W = LANE_PX * TRACK_PX;     // 135
+export const PIT_KERB_W = PIT_KERB_PX * TRACK_PX; // 45
 export const BG_PX = 4;                       // world units per background pixel
 export const BG_SIZE = 128;
 
