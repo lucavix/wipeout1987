@@ -9,7 +9,7 @@ const ITEM_POOL: ItemKind[] = ['turbo', 'turbo', 'missile', 'rockets', 'rockets'
 export const randomItem = (): ItemKind => ITEM_POOL[Math.floor(Math.random() * ITEM_POOL.length)];
 
 export const WEAPONS = {
-  turboTime: 1.3, turboAccel: 1500,
+  turboTime: 1.3,
   shieldTime: 5,
   missileSpeed: 2300, missileTurn: 4.0, missileLife: 3.5, missileDamage: 30, missileRange: 1600,
   rocketSpeed: 2700, rocketLife: 1.4, rocketDamage: 12, rocketSpread: 0.06,

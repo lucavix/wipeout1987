@@ -24,14 +24,14 @@ export const PHYS = {
   grazeOutDeg: 3,     // ...velocity set parallel to the wall, tilted this much away from it
   hitThreshold: 0.08, // normal speed (fraction of maxSpeed) below which a contact is a grind, not a hit
   grindFriction: 2.5, // 1/s tangential slowdown while scraping along a wall
-  padBoost: 450,      // u/s added by a speed pad
-  padMax: 1.3,        // speed pads can push you up to padMax * maxSpeed
-  boostDecay: 1.6,    // 1/s decay of speed above maxSpeed
+  padBoost: 330,      // u/s of boost given by a speed pad (+22% of the class top speed)
+  turboBoost: 520,    // u/s of boost held while a turbo item burns (+35%)
+  boostDecay: 0.7,    // 1/s exponential decay of the boost once the pad/turbo is over
   jumpMinSpeed: 500,  // slower than this over the gap and you fall
   jumpRespawnBack: 450, // restart this far before the gap (enough run-up to clear it again)
   fallDamage: 15,
   respawnDelay: 1.3, // seconds between the explosion and the restart
-  turboAccel: 1500,  // u/s^2 while a turbo item burns
+  turboRamp: 8,      // 1/s: how fast a turbo pulls the ship up to its boosted top speed
   pitRecharge: 30,   // energy per second in the pit lane
   pitSpeed: 750,     // speed cap in the pit lane
 };
@@ -108,14 +108,21 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
 
   if (!ship.airborne) {
     // Longitudinal.
-    if (c.thrust > 0) vf += P.thrust * (0.8 + 0.4 * st.thrust) * c.thrust * dt;
+    const thrustAcc = P.thrust * (0.8 + 0.4 * st.thrust);
+    if (c.thrust > 0) vf += thrustAcc * c.thrust * dt;
     else if (c.thrust < 0) vf -= P.brake * -c.thrust * dt;
     else vf -= Math.sign(vf) * Math.min(Math.abs(vf), P.coast * dt);
-    if (ship.turbo > 0) vf += P.turboAccel * dt;
+    if (ship.turbo > 0) {
+      // Turbo item: raise the top speed and ramp the ship up to it within a few tenths of a second.
+      ship.boost = Math.max(ship.boost, P.turboBoost * speedClass.mul);
+      const t = maxSpeed + ship.boost;
+      if (vf < t) vf += (t - vf) * Math.min(1, P.turboRamp * dt);
+    } else ship.boost *= Math.exp(-P.boostDecay * dt);
     if (ship.inPit && vf > P.pitSpeed) vf -= Math.min(vf - P.pitSpeed, 2500 * dt);
-    // Speed-dependent drag: terminal speed = maxSpeed under full thrust; boosts above it decay.
-    if (vf > maxSpeed) vf -= (vf - maxSpeed) * P.boostDecay * dt;
-    else if (vf > 0) vf -= P.thrust * (vf / maxSpeed) ** 2 * dt;
+    // Speed-dependent drag: terminal speed under full thrust = maxSpeed + boost; anything above is pulled down.
+    const top = maxSpeed + ship.boost;
+    if (vf > 0) vf -= thrustAcc * (vf / top) ** 2 * dt;
+    if (vf > top) vf -= (vf - top) * Math.min(1, 3 * dt);
     if (vf < -maxSpeed * 0.2) vf = -maxSpeed * 0.2;
 
     // Steering: turn rate falls with speed; airbrakes add turn and scrub speed.
@@ -185,9 +192,10 @@ export function stepShip(ship: Ship, c: Controls, track: Track, grid: WallGrid, 
       if (m.kind !== 'speed' || m.lane !== ship.laneIdx || ship.tile < m.k0 || ship.tile >= m.k1) continue;
       if (ship.padTile !== m.k0) {
         ship.padTile = m.k0; ev.padHit = true;
-        const cap = maxSpeed * P.padMax;
+        // A pad kicks the ship straight to its boosted top speed (max + padBoost), whatever it was doing.
+        ship.boost = Math.max(ship.boost, P.padBoost * speedClass.mul);
         const vfNow = dot(ship.vel, nf);
-        ship.vel = add(ship.vel, mul(nf, Math.max(0, Math.min(cap, vfNow + P.padBoost * speedClass.mul) - vfNow)));
+        ship.vel = add(ship.vel, mul(nf, Math.max(0, maxSpeed + ship.boost - vfNow)));
       }
     }
     if (!track.laneMarks.some((m) => m.k0 === ship.padTile && ship.tile >= m.k0 && ship.tile < m.k1)) ship.padTile = -1;

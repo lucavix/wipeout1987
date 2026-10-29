@@ -40,6 +40,8 @@ export class Ship {
   item: ItemKind | null = null;
   /** Seconds of turbo / shield left. */
   turbo = 0; shield = 0;
+  /** Extra top speed (u/s) granted by a pad or turbo, decays over time. */
+  boost = 0;
   eliminated = false;
   /** Opponent driver state (null = human). */
   ai: AiState | null = null;
@@ -64,7 +66,7 @@ export class Ship {
   respawn(track: Track, s: number): void {
     const at = laneAt(track.main, s / track.main.length);
     this.pos = { ...at.pos }; this.heading = angleOf(at.dir);
-    this.vel = { x: 0, y: 0 }; this.speed = 0; this.airborne = false; this.hint = -1; this.padTile = -1; this.s = at.s;
+    this.vel = { x: 0, y: 0 }; this.speed = 0; this.airborne = false; this.hint = -1; this.padTile = -1; this.boost = 0; this.s = at.s;
     for (const t of this.trails) t.clear();
   }
 

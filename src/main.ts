@@ -68,7 +68,7 @@ const newRace = (playerIdx = ships.indexOf(player)) => {
   const order = [...ships.filter((_, i) => i !== playerIdx), ships[playerIdx]];
   order.forEach((s, i) => {
     s.respawn(track, 0); s.pos = gridPos(i); s.heading = angleOf(track.finish.dir);
-    s.energy = 100; s.item = null; s.turbo = s.shield = 0; s.eliminated = false; s.dead = 0;
+    s.energy = 100; s.item = null; s.turbo = s.shield = s.boost = 0; s.eliminated = false; s.dead = 0;
     s.ai = s === ships[playerIdx] ? null : newAi(speedClass.aiMin + Math.random() * (speedClass.aiMax - speedClass.aiMin), i % 3);
   });
   player = ships[playerIdx];
