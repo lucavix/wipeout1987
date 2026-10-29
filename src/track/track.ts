@@ -169,8 +169,11 @@ function buildLane(center: Vec2[], strips: Strip[], closed: boolean): Lane {
   }
   const length = closed ? cum[n - 1] + dist(center[n - 1], center[0]) : cum[n - 1];
   if (closed) cum.push(length);
-  const polygon = [...left, ...[...right].reverse()];
-  const innerPolygon = [...wallLeft, ...[...wallRight].reverse()];
+  // Closed lanes: repeat the first samples so the ring is closed at s=0 (the two crossing edges
+  // coincide and cancel out in point-in-polygon tests); otherwise the last segment would be a gap.
+  const ring = (l: Vec2[], r: Vec2[]): Vec2[] => closed ? [...l, l[0], r[0], ...[...r].reverse()] : [...l, ...[...r].reverse()];
+  const polygon = ring(left, right);
+  const innerPolygon = ring(wallLeft, wallRight);
   return { closed, width: offR - offL, strips, center, tangent, left, right, wallLeft, wallRight, cum, length, polygon, innerPolygon };
 }
 
