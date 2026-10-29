@@ -70,9 +70,9 @@ Then open http://127.0.0.1:5187/. `npm run build` produces a static site in `dis
   world-aligned bitmap by forward splatting; each frame only the visible rectangle is blitted.
 - `src/game/physics.ts` is the handling model, `src/game/weapons.ts` the items, `src/game/ai.ts` the
   opponent drivers, `src/game/race.ts` laps and ranking.
-- Ships are pixel art stored as character grids in `src/gfx/ships.ts`; `tools/extract_sprite.py`
-  turns an image into one of those grids. Two ships for now (AG Systems and FEISAR); the others will
-  come from a proper pixel artist.
+- Ships are PNG sprites in `public/ships/` (nose up, transparent background), loaded at start-up;
+  `src/gfx/ships.ts` holds only the metadata (engine positions, trail colour, stats). Two ships for
+  now (AG Systems and FEISAR); the others will come from a proper pixel artist.
 - Track textures are PNGs in `public/textures/`, with procedural fallbacks in `src/gfx/tilegen.ts`
   (`npm run textures:generate` exports them).
 

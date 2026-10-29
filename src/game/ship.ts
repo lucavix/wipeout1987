@@ -1,5 +1,4 @@
 import { add, angleOf, fromAngle, type Vec2 } from '@/engine/math';
-import { bake } from '@/engine/pixelart';
 import { SHIP_PX, type ShipDef } from '@/gfx/ships';
 import { Trail } from '@/gfx/trail';
 import { laneAt, type Track } from '@/track/track';
@@ -92,7 +91,7 @@ export class Ship {
   draw(ctx: CanvasRenderingContext2D): void {
     if (this.dead > 0) return;
     if (this.spawnBlink > 0 && Math.floor(this.spawnBlink * 10) % 2 === 0) return;
-    const img = bake(this.def.art);
+    const img = this.def.image;
     const rot = this.heading + SPRITE_ROT + this.roll * SHIP_TILT.yaw;
     const rollA = this.roll * SHIP_TILT.rollDeg * DEG, pitchA = this.pitch * SHIP_TILT.pitchDeg * DEG;
     const lift = 1 + 0.3 * this.height;

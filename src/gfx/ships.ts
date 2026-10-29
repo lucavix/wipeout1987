@@ -1,161 +1,60 @@
-import { assertSize, type PixelArt } from '@/engine/pixelart';
-
 /**
- * Ship sprites, nose pointing UP. Extracted from ref/nave*.jpeg with tools/extract_sprite.py
- * (char grid + palette). Each ship has its own size; SHIP_PX converts sprite pixels to world units.
+ * Ship roster. The sprites are PNGs in public/ships/<id>.png (nose up, transparent background),
+ * loaded once at start-up by loadShips(); this file holds only the metadata.
  */
 export interface ShipDef {
   id: string;
   name: string;
-  art: PixelArt;
-  /** Sprite size in pixels. */
+  /** Sprite size in pixels, read from the PNG. */
   w: number; h: number;
   /** Engine nozzle positions in sprite pixels (origin top-left), used for trail emitters. */
   engines: { x: number; y: number }[];
   trailColor: string;
-  /** Handling flavour (phase 2): 0..1 each. */
+  /** Handling flavour: 0..1 each. */
   stats: { speed: number; thrust: number; handling: number; shield: number };
+  /** Baked sprite, set by loadShips(). */
+  image: HTMLCanvasElement;
 }
 
 /** World units per sprite pixel. */
 export const SHIP_PX = 1.6;
 
+const placeholder = (w: number, h: number): HTMLCanvasElement => {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#e24fd1'; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#06070d'; ctx.fillRect(2, 2, w - 4, h - 4);
+  ctx.fillStyle = '#e24fd1'; ctx.fillRect(w / 2 - 2, 2, 4, h - 4);
+  return c;
+};
+
+const def = (d: Omit<ShipDef, 'image' | 'w' | 'h'>): ShipDef => ({ ...d, w: 32, h: 56, image: placeholder(32, 56) });
+
 export const SHIPS: ShipDef[] = [
-  { id: 'agsys', name: 'AG-SYSTEMS', w: 38, h: 61, trailColor: '#4fd1ff',
+  def({ id: 'agsys', name: 'AG-SYSTEMS', trailColor: '#4fd1ff',
     engines: [{ x: 13.5, y: 60.5 }, { x: 25.0, y: 60.5 }],
-    stats: { speed: 0.6, thrust: 0.85, handling: 0.8, shield: 0.6 },
-    art: {
-      palette: { '.': null, a: '#a82929', b: '#bff1f9', c: '#304271', d: '#6ea3c2', e: '#db9436', f: '#252a4a', g: '#bcbfc3', h: '#73777c', i: '#618da9', j: '#fdfdfb', k: '#b2b0ad' },
-      rows: [
-        '.......f.ff...........f.f..ff.........',
-        '......cddccdcjjf......fjjcdccddc......',
-        '......icdccccjjf......fjjccccdcd......',
-        '.....cdcccddcjjf......fjjcddcccdc.....',
-        '.....cdcccddcjjf......fjjcddcccdc.....',
-        '.....fccccdd..............ddccccc.....',
-        '.....ffccc..cjjf......fjjc..ccccc.....',
-        '..........jjcjjf......fjjcjj..........',
-        '.....gjajccccjjf......fjjccccjajg.....',
-        '.....gjajjjjcjjf......fjjcjjjjajg.....',
-        '.....gjajccccjjf......fjjccccjajgf....',
-        '....fgjajccjcjjf......fjjcjccjajgf....',
-        '.....gjajjjccjjf......fjjccjjjajg.....',
-        '.....gjajccccjjf......fjjccccjajg.....',
-        '....akaajjcccjjf......fjjcccjjaaka....',
-        '...faaaaajjjcjjf......fjjcjjjaaaaa....',
-        '...fcfcccajjcccf......fcccjjacccfc....',
-        '...fcfcccajjccc........cccjjacccfc....',
-        '...fcfeccajjcjjf......fjjcjjaccefc....',
-        '....cfaccajjcjjf......fjjcjjaccafc....',
-        '....cfeccajjcjjf......fjjcjjaccefc....',
-        '...fcfcccajjcjjf......fjjcjjacccfcf...',
-        '...ccccccajjcjjf......fjjcjjacccccc...',
-        '...ciccccajjcjjf......fjjcjjaccccic...',
-        '..fciccccajjcjjf......fjjcjjaccccic...',
-        '...cicaccajjcjjf......fjjcjjaccdcic...',
-        '...ciccccajjcjjf......fjjcjjaccdcic...',
-        '..fcichcaajjcjcff....ffcjcjjaacdcic...',
-        '..fcf.ccajjjcjjffc..hffjjcjjjaccf.c...',
-        '...i.g.cajjjcjcffh..hffcjcjjjac.k.i...',
-        '..fi.g.cajjjcjjffffffffjjcjcjac.kfi...',
-        '..ffffccajjjcjgfggkgggfgjcjjjacc..ff..',
-        '.cdcdcccajjjcggfgjaajgfggcjcjacccicdc.',
-        '.cdcdcccajjg.ggfgaaaagfgg.gjjacccicdc.',
-        'fcccdcccajj.h.gfgaaaagfg.h.jjacccdccc.',
-        '...cdcccag.hh.ggjjjjjjgg.hh.gacccdc...',
-        '.ccccccca.hhh.jgj....jgj.hhh.accccccc.',
-        '.ccccccca.hh.gjj.iiib.jjg.hh.accccccc.',
-        '.ceccccca.h..gj.fiibif.jgf.h.accccecc.',
-        'fcccccc....fggj.fibiif.jggf....cccccc.',
-        'fckcccc.ahhggj.ifbiiifi.jgghha.ccckccf',
-        '.ccccc..ajjjjj.iiffffii.jjjjja..cccccf',
-        '......g..acjjj..i.di.i..jjjca..g......',
-        '.agjjjg.hacjjj.i.dibi.i.jjjjah.gjjjga.',
-        'aagjjcc..ajcjg.i.ibii.i.gjjca..ccjjgaa',
-        'aagjjjg.hacjjj.ifidii.i.jjjjah.gjjjgaa',
-        'aagjjcc..ajcjg.ifbiii.i.gjjca..ccjjgaa',
-        'aagjjgg.hacjjj.i.iiii.i.jjjjah.ggjjgaa',
-        'aagjjgg..ajjjg....ff....gjjja..ggjjgaa',
-        'aagccjg.ajjajg.h.kkkk.i.gjajja.gjccgaa',
-        'aagcjcg.eajajgj.h....i.jgjajae.gcjcgaa',
-        'aagjjjc.eajajgjj.cccc.jjgjajae.cjjjgaa',
-        'aagjjjk.......gjj....jjg.......gjjjgaa',
-        'aaaaaaa.fecccc.kjjaajjk.cccce..aaaaaaa',
-        '........fecdicc.kcaack.ccidcef........',
-        '........fecccccc......ccccccef........',
-        '........fecccccc......ccccccef........',
-        '.........fe.e............e.ef.........',
-        '..........chchhh......hhhchc..........',
-        '...........hccchf.....hccchf..........',
-        '...........hhhhh......hhhhhf..........',
-      ],
-    } },
-  { id: 'feisar', name: 'FEISAR', w: 30, h: 58, trailColor: '#f2d23c',
+    stats: { speed: 0.6, thrust: 0.85, handling: 0.8, shield: 0.6 } }),
+  def({ id: 'feisar', name: 'FEISAR', trailColor: '#f2d23c',
     engines: [{ x: 10.2, y: 57.5 }, { x: 19.8, y: 57.5 }],
-    stats: { speed: 0.55, thrust: 0.7, handling: 0.9, shield: 0.8 },
-    art: {
-      palette: { '.': null, a: '#2a65ba', b: '#f1bc1e', c: '#f9fdf9', d: '#23264a', e: '#b22a2c', f: '#d78d19', g: '#f7e490', h: '#7cb4c8', i: '#214e93', j: '#bdc9ce', k: '#638ca2', l: '#f3d153' },
-      rows: [
-        '........d............d........',
-        '........fbggggggggggbf........',
-        '......dfbbgbbbbbbbbgbbfd......',
-        '.......fbbgbbbbbbbbgbbf.......',
-        '.......fbbgbbbbbbbbgbbf.......',
-        '.......fbbgbbbbbbbbgbbf.......',
-        '......fbbbgbbbbbbbbgbbbfd.....',
-        '.....dfbbbgbbbbbbbbgbbbfd.....',
-        '......fbbbgbd...ddbgbbbf......',
-        '......fbbbgdiiiiiidgbbbf......',
-        '......fbbb.aaaaaaaa.bbbfd.....',
-        '......fb.dcaaaaaaaacddbfd.....',
-        '....df..bbcaccccccacbb.df.....',
-        '....d.fbbbcacbbbbcacbbbf......',
-        '....dffbbcaacbbbbcaacbbffd....',
-        '....dfbbbcacabbbbacacbbbfd....',
-        '....dfbbbcacabbbbacacbbbfd....',
-        '....dfbbbcacabbbbacacbbbfd....',
-        '...ddfbbbcacabbbbacacbbbfdd...',
-        '....fbbbcaacaddddacaacbbbfd...',
-        '....fbbbcaacaeeeeacaacbbbf....',
-        '...dfbbbcaacaeeeeacaacbbbfd...',
-        '....fbbbcaacaddddacaacbbbf....',
-        '...fbbbbcaacaeeeeacaacbbbbf...',
-        '...fbbbbcaacaddddacaacbbbbfd..',
-        '...fbbbcaaacaffffacaaacbbbfd..',
-        '...fbbbcaaaji....ijaaacbbbfd..',
-        '...fbbbcaaaj.bggf.jaaacbbbfd..',
-        '...fbbbcaaa.blggbb.aaacbbbf...',
-        '.dfbbbbcaai.bggggb.iaacbbbbf..',
-        '..fbbbbcaa.bl....lb.aacbbbbf..',
-        '.dfbbbcaaa.l.khhc.l.aaacbbbf..',
-        'dfbbbbcaaa.l.khch.l.aaacbbbbf.',
-        '.fbbbbcaa.b.khchhk.b.aacbbbbf.',
-        'd.fbbbcaa.b.kchhhj.b.aacbbbf..',
-        '.fd.fbcaa.b.khhhck.b.aacbf.df.',
-        'dfff.fcaa.b.khhchk.b.aacf.fff.',
-        '.fbbf.aa.fb.khchhk.bf.aa.fbbfd',
-        '.fbbbc.a.f.kdchhhdk.f.a.cbbbf.',
-        '.fbbbc.j.f.khddddkk.f.j.cbbbf.',
-        '.fbbb.ac.ff.kdhhdk.ff.ca.bbbf.',
-        '.fbbf.cai.fb.khhk.bf.iac.fbbfd',
-        '.fbbf.cai.fbb....bbf.iac.fbbf.',
-        '.fbf.acai.ffbbggbbff.iaca.fbf.',
-        '.fbfdaaai.fbbbggbbbf.iaaa.fbf.',
-        '.ffdacaaii.fbbggbbf.iiaacadff.',
-        '.ffdacaaii.fb.aa.bf.iiaacadff.',
-        '.ffdacaaai.fb.aa.bf.iaaacadffd',
-        '.ffdacaaai.fb.aa.bf.iaaacadff.',
-        '.ffdacaaaii.f.aa.f.iiaaacadff.',
-        'dffdacaiiii.fdaa.f.iiaaacadff.',
-        '..fdacadddi.fbaabf.idddacadf..',
-        '..ddacaeeei.fbaabf.ieeeacadd..',
-        '...dacadddii.faaf.ii.ddacad...',
-        '....djaeeeii.fllf.iieeeaj.....',
-        '.............fllf.............',
-        '..............ff..............',
-        '...............d..............',
-      ],
-    } },
+    stats: { speed: 0.55, thrust: 0.7, handling: 0.9, shield: 0.8 } }),
 ];
 
-for (const s of SHIPS) assertSize(s.name, s.art, s.w, s.h);
+function loadPng(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+/** Load every ship PNG into its ShipDef (size taken from the file). Missing files get a magenta placeholder. */
+export async function loadShips(): Promise<void> {
+  await Promise.all(SHIPS.map(async (s) => {
+    const img = await loadPng(`${import.meta.env.BASE_URL}ships/${s.id}.png`);
+    if (!img) { console.warn(`ships/${s.id}.png mancante: uso un segnaposto`); return; }
+    const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+    c.getContext('2d')!.drawImage(img, 0, 0);
+    s.image = c; s.w = c.width; s.h = c.height;
+  }));
+}

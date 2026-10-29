@@ -2,13 +2,12 @@ import { createScreen, beginFrame } from '@/engine/canvas';
 import { initInput, endInputFrame, pressed, down, axis } from '@/engine/input';
 import { Camera } from '@/engine/camera';
 import { add, mul, perp, angleOf } from '@/engine/math';
-import { bake } from '@/engine/pixelart';
 import { buildTrack } from '@/track/track';
 import { SAGARMATHA } from '@/track/sagarmatha';
 import { drawGround, drawTrack, drawTrackDebug, drawStripOutlines, prerenderTrack, setTiles } from '@/track/trackRender';
 import { PAL } from '@/gfx/palette';
 import { loadTiles } from '@/gfx/tiles';
-import { SHIPS, type ShipDef } from '@/gfx/ships';
+import { SHIPS, loadShips, type ShipDef } from '@/gfx/ships';
 import { drawHud } from '@/gfx/hud';
 import { drawText, textWidth } from '@/gfx/font';
 import { Ship, SHIP_TILT } from '@/game/ship';
@@ -26,6 +25,7 @@ initInput();
 
 const track = buildTrack(SAGARMATHA);
 setTiles(await loadTiles());
+await loadShips();
 { const t0 = performance.now(); const size = prerenderTrack(track); console.log(`track prerender: ${size} px in ${Math.round(performance.now() - t0)} ms`); }
 const camera = new Camera();
 
@@ -234,7 +234,7 @@ function drawSelect(): void {
   ships.forEach((s, i) => {
     const d = s.def, x = x0 + i * gap, sel = i === selectIdx;
     if (sel) { ctx.fillStyle = PAL.navy; ctx.fillRect(x - 20, y0 - 20, 50 * sc + 40, 64 * sc + 150); }
-    ctx.drawImage(bake(d.art), x + (50 * sc - d.w * sc) / 2, y0 + (64 * sc - d.h * sc) / 2, d.w * sc, d.h * sc);
+    ctx.drawImage(d.image, x + (50 * sc - d.w * sc) / 2, y0 + (64 * sc - d.h * sc) / 2, d.w * sc, d.h * sc);
     drawText(ctx, d.name, x, y0 + 64 * sc + 10, 2, sel ? d.trailColor : PAL.grey);
     const bars: [string, number][] = [['VEL', d.stats.speed], ['SPINTA', d.stats.thrust], ['GUIDA', d.stats.handling], ['SCUDO', d.stats.shield]];
     bars.forEach(([n, v], j) => {
@@ -282,7 +282,7 @@ function render(): void {
     const x0 = (width - SHIPS.length * gap + 24) / 2, y0 = 90;
     ctx.fillStyle = 'rgba(6,7,13,0.8)'; ctx.fillRect(0, y0 - 20, width, 64 * sc + 70);
     SHIPS.forEach((d, i) => {
-      ctx.drawImage(bake(d.art), x0 + i * gap, y0, d.w * sc, d.h * sc);
+      ctx.drawImage(d.image, x0 + i * gap, y0, d.w * sc, d.h * sc);
       drawText(ctx, d.name, x0 + i * gap, y0 + 64 * sc + 10, 2, d.trailColor);
     });
   }

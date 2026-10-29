@@ -1,10 +1,11 @@
-"""Convert a pixel-art reference image (regular cell grid) into a char-grid sprite for src/gfx.
-Usage: python3 -I tools/extract_sprite.py ref/nave1.jpeg 100 > out.txt   (100 = cells per side)
+"""Convert a pixel-art reference image (regular cell grid) into a sprite PNG for public/ships/.
+Usage: python3 -I tools/extract_sprite.py ref/nave1.jpeg 100 public/ships/nuova.png   (100 = cells per side)
+Prints the suggested engine positions and palette for src/gfx/ships.ts.
 """
 import sys, cv2, numpy as np
 from collections import Counter
 
-path, cells = sys.argv[1], int(sys.argv[2])
+path, cells, out = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 im = cv2.imread(path); H, W = im.shape[:2]
 cw, ch = W / cells, H / cells
 # sample the median of a small window at each cell centre
@@ -63,9 +64,12 @@ for i in low:
     if clusters and i - clusters[-1][-1] <= 1: clusters[-1].append(i)
     else: clusters.append([i])
 engines = [{'x': round(sum(c) / len(c) + 0.5, 1), 'y': h - 0.5} for c in clusters if len(c) >= 2]
-print(f"// {path}: {crop.shape[1]}x{crop.shape[0]} px, {len(uniq)} colours")
-print("palette: { '.': null, " + ', '.join(f"{k}: '{v}'" for k, v in pal.items()) + " },")
+out_img = np.zeros((len(rows), len(rows[0]), 4), np.uint8)
+for j, r in enumerate(rows):
+    for i, ch in enumerate(r):
+        if ch != '.':
+            c = pal[ch]; out_img[j, i] = (int(c[5:7], 16), int(c[3:5], 16), int(c[1:3], 16), 255)
+cv2.imwrite(out, out_img)
+print(f"// {out}: {crop.shape[1]}x{crop.shape[0]} px, {len(uniq)} colours")
 print("engines: " + str(engines).replace("'", "") + ",")
-print("rows: [")
-for r in rows: print(f"  '{r}',")
-print("],")
+print("palette: " + ', '.join(pal.values()))
