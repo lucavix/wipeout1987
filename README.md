@@ -2,7 +2,9 @@
 
 A top-down, 2D, pixel-art tribute to **WipEout**.
 
-**Play it in the browser: https://lucavix.github.io/wipeout1987/** (keyboard required).
+## Demo
+
+**Play it now in your browser: [lucavix.github.io/wipeout1987](https://lucavix.github.io/wipeout1987/)** (keyboard required, no install).
 
 I have been playing video games for forty years, and no game has ever hit me the way WipEout did:
 the speed, the anti-gravity handling, the neon tracks, the music, the whole Designers Republic look.
