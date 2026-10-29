@@ -2,6 +2,8 @@
 
 A top-down, 2D, pixel-art tribute to **WipEout**.
 
+**Play it in the browser: https://lucavix.github.io/wipeout1987/** (keyboard required).
+
 I have been playing video games for forty years, and no game has ever hit me the way WipEout did:
 the speed, the anti-gravity handling, the neon tracks, the music, the whole Designers Republic look.
 This little project is my way of saying thank you to the people who made it, and of saying out loud
@@ -55,7 +57,8 @@ npm install
 npm run dev
 ```
 
-Then open http://127.0.0.1:5187/. `npm run build` produces a static site in `dist/`.
+Then open http://127.0.0.1:5187/. `npm run build` produces a static site in `dist/`; every push to
+`main` deploys it to GitHub Pages through `.github/workflows/pages.yml`.
 
 ## How it is built
 

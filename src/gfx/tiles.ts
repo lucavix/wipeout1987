@@ -45,7 +45,7 @@ function loadPng(name: string): Promise<HTMLCanvasElement | null> {
     const img = new Image();
     img.onload = () => resolve(toCanvas(img));
     img.onerror = () => resolve(null);
-    img.src = `/textures/${name}.png`;
+    img.src = `${import.meta.env.BASE_URL}textures/${name}.png`;
   });
 }
 

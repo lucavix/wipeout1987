@@ -73,8 +73,8 @@ const newRace = (playerIdx = ships.indexOf(player)) => {
   camera.snapTo(player.pos, camera.params.zoomNear);
 };
 
-const refImg = new Image(); refImg.src = '/ref/sagarmatha.png';
-const styleImg = new Image(); styleImg.src = '/ref/pista.jpeg';
+const refImg = new Image(); refImg.src = `${import.meta.env.BASE_URL}ref/sagarmatha.png`;
+const styleImg = new Image(); styleImg.src = `${import.meta.env.BASE_URL}ref/pista.jpeg`;
 let showStyle = false;
 let showRef = false, showDebug = false, showSheet = false, freeCam = false, showStrips = false, paused = false;
 let now = 0;
@@ -257,7 +257,7 @@ function render(): void {
   drawTrack(ctx, track, camera.viewRect(screen));
   if (showStrips) drawStripOutlines(ctx, track, camera.zoom, camera.viewRect(screen));
   if (showDebug) drawTrackDebug(ctx, track, camera.zoom);
-  if (showRef && refImg.complete) { ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * 10, refImg.height * 10); ctx.globalAlpha = 1; }
+  if (showRef && refImg.naturalWidth > 0) { ctx.globalAlpha = 0.5; ctx.drawImage(refImg, 0, 0, refImg.width * 10, refImg.height * 10); ctx.globalAlpha = 1; }
   for (const s of ships) for (const t of s.trails) t.draw(ctx, now);
   for (const s of ships) s.draw(ctx);
   for (const p of projectiles) drawProjectile(ctx, p, now);
@@ -273,7 +273,7 @@ function render(): void {
   });
   drawRaceOverlay();
   if (paused) drawText(ctx, 'PAUSA', (width - textWidth('PAUSA', 6)) / 2, 60, 6, PAL.yellow);
-  if (showStyle && styleImg.complete) { ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0); ctx.drawImage(styleImg, width - 420, 60, 400, 400); }
+  if (showStyle && styleImg.naturalWidth > 0) { ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0); ctx.drawImage(styleImg, width - 420, 60, 400, 400); }
   drawText(ctx, freeCam ? 'FREE CAM  F: SEGUI NAVE  O: TUTTA LA PISTA' : `FRECCE: GUIDA  Z/X: AIRBRAKE  A: AUTOPILOTA${auto.has(player) ? ' [ON]' : ''}  SPAZIO: ARMA  F: CAMERA  B: BORDI  D: MURI  F1: DEBUG`, 16, height - 60, 2, PAL.grey);
 
   if (showSheet) {
