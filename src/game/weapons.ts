@@ -38,8 +38,22 @@ export function targetAhead(ship: Ship, ships: Ship[], range: number, cone = 0.6
   return best;
 }
 
+/** Pick the nearest living ship behind `ship` inside a cone, for rear-fired missiles and the AI. */
+export function targetBehind(ship: Ship, ships: Ship[], range: number, cone = 0.6): Ship | null {
+  let best: Ship | null = null, bd = range;
+  const rearHeading = ship.heading + Math.PI;
+  for (const o of ships) {
+    if (o === ship || o.dead > 0) continue;
+    const d = dist(o.pos, ship.pos);
+    if (d >= bd) continue;
+    if (Math.abs(angleDiff(rearHeading, angleOf(sub(o.pos, ship.pos)))) > cone) continue;
+    best = o; bd = d;
+  }
+  return best;
+}
+
 /** Use the item a ship holds. Returns the projectiles spawned (turbo/shield spawn none). */
-export function useItem(ship: Ship, ships: Ship[]): Projectile[] {
+export function useItem(ship: Ship, ships: Ship[], rear = false): Projectile[] {
   const item = ship.item; if (!item) return [];
   ship.item = null;
   const W = WEAPONS, fwd = fromAngle(ship.heading);
@@ -47,14 +61,21 @@ export function useItem(ship: Ship, ships: Ship[]): Projectile[] {
   switch (item) {
     case 'turbo': ship.turbo = W.turboTime; return [];
     case 'shield': ship.shield = W.shieldTime; return [];
-    case 'missile':
-      return [{ kind: 'missile', pos: nose, vel: mul(fwd, W.missileSpeed), heading: ship.heading, owner: ship,
-        target: targetAhead(ship, ships, W.missileRange), life: W.missileLife, age: 0, radius: 10 }];
-    case 'rockets':
+    case 'missile': {
+      const heading = rear ? ship.heading + Math.PI : ship.heading;
+      const pos = rear ? tail : nose;
+      const target = rear ? targetBehind(ship, ships, W.missileRange) : targetAhead(ship, ships, W.missileRange);
+      return [{ kind: 'missile', pos, vel: fromAngle(heading, W.missileSpeed), heading, owner: ship,
+        target, life: W.missileLife, age: 0, radius: 10 }];
+    }
+    case 'rockets': {
+      const baseH = rear ? ship.heading + Math.PI : ship.heading;
+      const pos = rear ? tail : nose;
       return [-1, 0, 1].map((k) => {
-        const h = ship.heading + k * W.rocketSpread;
-        return { kind: 'rocket' as const, pos: add(nose, mul({ x: -fwd.y, y: fwd.x }, k * 10)), vel: fromAngle(h, W.rocketSpeed), heading: h, owner: ship, target: null, life: W.rocketLife, age: 0, radius: 7 };
+        const h = baseH + k * W.rocketSpread;
+        return { kind: 'rocket' as const, pos: add(pos, mul({ x: -fwd.y, y: fwd.x }, k * 10)), vel: fromAngle(h, W.rocketSpeed), heading: h, owner: ship, target: null, life: W.rocketLife, age: 0, radius: 7 };
       });
+    }
     case 'mines':
       return [-1, 0, 1].map((k) => ({ kind: 'mine' as const, pos: add(tail, mul({ x: -fwd.y, y: fwd.x }, k * 60)), vel: { x: 0, y: 0 }, heading: 0, owner: ship, target: null, life: W.mineLife, age: 0, radius: 14 }));
   }

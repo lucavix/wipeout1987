@@ -53,6 +53,7 @@ original pixel art inspired by the games.
 | Arrow left / right | Steer |
 | Z / X | Left / right airbrake |
 | Space | Use item |
+| C | Use item backwards |
 | Esc | Pause |
 | Up / down (menus) | Choose the class, the circuit, then left / right the ship |
 | Enter / Esc | Next screen / previous screen; Enter starts the race |
