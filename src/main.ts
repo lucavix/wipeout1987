@@ -230,14 +230,22 @@ function update(dt: number): void {
   const live = race.started;
   for (const s of ships) {
     let c: Controls = NO_CONTROLS;
-    let fire = false;
+    let fire = false, fireRear = false;
     const en = race.entry(s);
     if (live && !en.finished && !en.eliminated && s.dead === 0) {
-      if (s.ai) { c = aiControls(s, s.ai, track, ships, dt); fire = s.ai.fire; }
+      if (s.ai) { c = aiControls(s, s.ai, track, ships, dt); fire = s.ai.fire; fireRear = s.ai.fireRear; }
       else if (auto.has(s)) c = autopilot(s, track, 1);
-      else if (s === player) { c = dbg.input ?? { thrust: axis('ArrowDown', 'ArrowUp'), steer: axis('ArrowLeft', 'ArrowRight'), airL: down('KeyZ'), airR: down('KeyX') }; fire = pressed('Space'); }
+      else if (s === player) {
+        c = dbg.input ?? { thrust: axis('ArrowDown', 'ArrowUp'), steer: axis('ArrowLeft', 'ArrowRight'), airL: down('KeyZ'), airR: down('KeyX') };
+        fire = pressed('Space');
+        fireRear = pressed('KeyC');
+      }
     }
-    if (fire && s.item && s.dead === 0 && !s.airborne) { const shots = useItem(s, ships); projectiles.push(...shots); stats.shots++; }
+    if ((fire || fireRear) && s.item && s.dead === 0 && !s.airborne) {
+      const shots = useItem(s, ships, fireRear && !fire);
+      projectiles.push(...shots);
+      stats.shots++;
+    }
     const ev = stepShip(s, c, track, wallGrid, dt);
     if (ev.graze) { stats.graze++; sparks.emit(ev.graze.pos, ev.graze.dir, ev.graze.n, 4, s.speed); }
     if (ev.wallHit) stats.hits++;
@@ -383,7 +391,7 @@ function render(): void {
   drawRaceOverlay();
   if (paused) drawText(ctx, 'PAUSA', (width - textWidth('PAUSA', 6)) / 2, 60, 6, PAL.yellow);
   if (showStyle && styleImg.naturalWidth > 0) { ctx.setTransform(screen.dpr, 0, 0, screen.dpr, 0, 0); ctx.drawImage(styleImg, width - 420, 60, 400, 400); }
-  drawText(ctx, freeCam ? 'FREE CAM  F: SEGUI NAVE  O: TUTTA LA PISTA' : `FRECCE: GUIDA  Z/X: AIRBRAKE  A: AUTOPILOTA${auto.has(player) ? ' [ON]' : ''}  SPAZIO: ARMA  F: CAMERA  B: BORDI  D: MURI  F1: DEBUG`, 16, height - 60, 2, PAL.grey);
+  drawText(ctx, freeCam ? 'FREE CAM  F: SEGUI NAVE  O: TUTTA LA PISTA' : `FRECCE: GUIDA  Z/X: AIRBRAKE  A: AUTOPILOTA${auto.has(player) ? ' [ON]' : ''}  SPAZIO: ARMA  C: RETRO  F: CAMERA  B: BORDI  D: MURI  F1: DEBUG`, 16, height - 60, 2, PAL.grey);
 
   if (showSheet) {
     // Sprite sheet: every ship at 6x, nose up, with name.

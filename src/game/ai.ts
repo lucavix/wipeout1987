@@ -2,7 +2,7 @@ import { angleDiff, angleOf, dist, sub } from '@/engine/math';
 import { laneAt, tileOfS, type Track } from '@/track/track';
 import type { Controls } from './physics';
 import type { Ship } from './ship';
-import { targetAhead } from './weapons';
+import { targetAhead, targetBehind } from './weapons';
 
 export interface AiState {
   /** 0..1: lookahead precision, throttle courage, reaction. */
@@ -10,9 +10,10 @@ export interface AiState {
   lane: number;
   laneTimer: number;
   fire: boolean;
+  fireRear: boolean;
 }
 
-export const newAi = (skill: number, lane: number): AiState => ({ skill, lane, laneTimer: 2 + Math.random() * 4, fire: false });
+export const newAi = (skill: number, lane: number): AiState => ({ skill, lane, laneTimer: 2 + Math.random() * 4, fire: false, fireRear: false });
 
 /**
  * Opponent driver: follows the centreline offset to its lane, changes lane to catch speed pads or
@@ -21,6 +22,7 @@ export const newAi = (skill: number, lane: number): AiState => ({ skill, lane, l
 export function aiControls(ship: Ship, ai: AiState, track: Track, ships: Ship[], dt: number): Controls {
   const L = track.main.length, k = ai.skill;
   ai.fire = false;
+  ai.fireRear = false;
   // Lane choice: prefer a lane with a speed pad coming up; otherwise wander now and then.
   ai.laneTimer -= dt;
   const myTile = tileOfS(ship.s);
@@ -47,7 +49,10 @@ export function aiControls(ship: Ship, ai: AiState, track: Track, ships: Ship[],
   // Items.
   if (ship.item) {
     if (ship.item === 'turbo' && bend < 0.25) ai.fire = true;
-    else if ((ship.item === 'missile' || ship.item === 'rockets') && targetAhead(ship, ships, 1200, 0.3)) ai.fire = true;
+    else if (ship.item === 'missile' || ship.item === 'rockets') {
+      if (targetAhead(ship, ships, 1200, 0.3)) ai.fire = true;
+      else if (targetBehind(ship, ships, 1000, 0.35)) ai.fireRear = true;
+    }
     else if (ship.item === 'mines' && ships.some((o) => o !== ship && o.dead === 0 && dist(o.pos, ship.pos) < 500 && Math.abs(angleDiff(ship.heading, angleOf(sub(o.pos, ship.pos)))) > 2.4)) ai.fire = true;
     else if (ship.item === 'shield' && ship.energy < 45) ai.fire = true;
   }
