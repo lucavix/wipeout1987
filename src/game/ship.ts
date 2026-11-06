@@ -20,6 +20,8 @@ export class Ship {
   vel: Vec2 = { x: 0, y: 0 };
   speed = 0;
   energy = 100;
+  /** World units per sprite pixel for this ship. */
+  px: number;
   /** Collision radius. */
   radius: number;
   /** Roll (banking) -1..1: from above the hull looks narrower, as if seen on its side. */
@@ -49,7 +51,8 @@ export class Ship {
   constructor(public def: ShipDef, pos: Vec2, heading: number) {
     this.pos = { ...pos };
     this.heading = heading;
-    this.radius = def.w * SHIP_PX * 0.42;
+    this.px = SHIP_PX * (def.scale ?? 1);
+    this.radius = def.w * this.px * 0.42;
     this.trails = def.engines.map(() => new Trail(def.trailColor));
   }
 
@@ -73,7 +76,7 @@ export class Ship {
   /** World position of engine nozzle i. */
   enginePos(i: number): Vec2 {
     const e = this.def.engines[i];
-    const lx = (e.x - this.def.w / 2) * SHIP_PX, ly = (e.y - this.def.h / 2) * SHIP_PX;
+    const lx = (e.x - this.def.w / 2) * this.px, ly = (e.y - this.def.h / 2) * this.px;
     const a = this.heading + SPRITE_ROT;
     const c = Math.cos(a), s = Math.sin(a);
     return add(this.pos, { x: lx * c - ly * s, y: lx * s + ly * c });
@@ -98,9 +101,9 @@ export class Ship {
     const rollA = this.roll * SHIP_TILT.rollDeg * DEG, pitchA = this.pitch * SHIP_TILT.pitchDeg * DEG;
     const lift = 1 + 0.3 * this.height;
     // Top-down projection of a banked/pitched flat hull: width * cos(roll), length * cos(pitch).
-    const w = this.def.w * SHIP_PX * Math.cos(rollA) * lift, h = this.def.h * SHIP_PX * Math.cos(pitchA) * lift;
+    const w = this.def.w * this.px * Math.cos(rollA) * lift, h = this.def.h * this.px * Math.cos(pitchA) * lift;
     // Nose up (pitch > 0) foreshortens from the tail, nose down from the nose: keep the engines in place.
-    const shiftY = (this.def.h * SHIP_PX - h) / 2 * Math.sign(this.pitch) * 0.5;
+    const shiftY = (this.def.h * this.px - h) / 2 * Math.sign(this.pitch) * 0.5;
     if (this.airborne) {
       // Drop shadow on the ground, offset with height.
       ctx.save();

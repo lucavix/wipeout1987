@@ -7,6 +7,8 @@ export interface ShipDef {
   name: string;
   /** Sprite size in pixels, read from the PNG. */
   w: number; h: number;
+  /** Extra draw scale for sprites drawn at a different pixel density (1 = SHIP_PX per sprite pixel). */
+  scale?: number;
   /** Engine nozzle positions in sprite pixels (origin top-left), used for trail emitters. */
   engines: { x: number; y: number }[];
   trailColor: string;
@@ -38,10 +40,10 @@ export const SHIPS: ShipDef[] = [
     engines: [{ x: 10.2, y: 57.5 }, { x: 19.8, y: 57.5 }],
     stats: { speed: 0.55, thrust: 0.7, handling: 0.9, shield: 0.8 } }),
   def({ id: 'auricom', name: 'AURICOM', trailColor: '#5f93f2',
-    engines: [{ x: 10.2, y: 57.5 }, { x: 19.8, y: 57.5 }],
+    engines: [{ x: 15.5, y: 83.5 }, { x: 32.5, y: 82.5 }], scale: 0.72,
     stats: { speed: 0.65, thrust: 0.6, handling: 0.7, shield: 0.95 } }),
   def({ id: 'piranha', name: 'PIRANHA', trailColor: '#ffb060',
-    engines: [{ x: 12.2, y: 57.5 }, { x: 21.8, y: 57.5 }],
+    engines: [{ x: 12.0, y: 49.5 }, { x: 18.0, y: 50.5 }],
     stats: { speed: 0.95, thrust: 0.8, handling: 0.5, shield: 0.35 } }),
 ];
 
