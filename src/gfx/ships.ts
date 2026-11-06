@@ -37,6 +37,12 @@ export const SHIPS: ShipDef[] = [
   def({ id: 'feisar', name: 'FEISAR', trailColor: '#f2d23c',
     engines: [{ x: 10.2, y: 57.5 }, { x: 19.8, y: 57.5 }],
     stats: { speed: 0.55, thrust: 0.7, handling: 0.9, shield: 0.8 } }),
+  def({ id: 'auricom', name: 'AURICOM', trailColor: '#5f93f2',
+    engines: [{ x: 10.2, y: 57.5 }, { x: 19.8, y: 57.5 }],
+    stats: { speed: 0.65, thrust: 0.6, handling: 0.7, shield: 0.95 } }),
+  def({ id: 'piranha', name: 'PIRANHA', trailColor: '#ffb060',
+    engines: [{ x: 12.2, y: 57.5 }, { x: 21.8, y: 57.5 }],
+    stats: { speed: 0.95, thrust: 0.8, handling: 0.5, shield: 0.35 } }),
 ];
 
 function loadPng(url: string): Promise<HTMLImageElement | null> {

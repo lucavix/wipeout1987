@@ -20,3 +20,5 @@ Anteprime ingrandite 8x in `docs/ships/`.
 |---|---|---|---|
 | agsys | AG-SYSTEMS | 38x61 | (13.5, 60.5) (25.0, 60.5) |
 | feisar | FEISAR | 30x58 | (10.2, 57.5) (19.8, 57.5) |
+| auricom | AURICOM | 30x58 | (10.2, 57.5) (19.8, 57.5) | derivata da feisar.png con `.memory/make_ships.py` (livrea blu/argento)
+| piranha | PIRANHA | 34x58 | (12.2, 57.5) (21.8, 57.5) | derivata da feisar.png (arancione chiaro, muso allargato in punta)
