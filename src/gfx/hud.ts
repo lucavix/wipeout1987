@@ -13,6 +13,8 @@ export interface HudData {
   item: string | null;
   position: number; total: number;
   shield: number; turbo: number;
+  /** In the pit lane: energy is recharging. */
+  pit: boolean;
   fps: number;
 }
 
@@ -42,6 +44,7 @@ export function drawHud(screen: Screen, d: HudData): void {
   ctx.fillStyle = PAL.black; ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
   ctx.fillStyle = d.energy > 0.3 ? PAL.green : PAL.red; ctx.fillRect(bx, by, Math.round(bw * d.energy), bh);
   drawText(ctx, 'ENERGY', bx, by - 7 * 2 - 4, 2, PAL.silver);
+  if (d.pit && Math.floor(performance.now() / 250) % 2 === 0) drawText(ctx, 'BOX: RICARICA', bx + textWidth('ENERGY', 2) + 16, by - 7 * 2 - 4, 2, PAL.green);
   // Bottom-right: speed readout + bar
   const kmh = Math.round(d.speed * 0.6);
   const txt = `${kmh}`;

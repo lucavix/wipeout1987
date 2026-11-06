@@ -378,7 +378,7 @@ function render(): void {
     shipName: `${player.def.name}  ${speedClass.name}`, speed: player.speed, maxSpeed: classMaxSpeed(), lap: Math.min(LAPS, e.lap + 1), laps: LAPS,
     time: e.finished ? e.finishTime! : race.lapTime(e), bestLap: e.best, energy: player.energy / 100,
     item: player.item ? ITEM_NAMES[player.item] : null, position: race.position(player), total: ships.length,
-    shield: player.shield, turbo: player.turbo, fps,
+    shield: player.shield, turbo: player.turbo, pit: player.inPit, fps,
   });
   drawRaceOverlay();
   if (paused) drawText(ctx, 'PAUSA', (width - textWidth('PAUSA', 6)) / 2, 60, 6, PAL.yellow);

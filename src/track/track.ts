@@ -1,5 +1,5 @@
 import { add, angleDiff, angleOf, catmullRom, dist, lerpV, mul, norm, perp, pointInPolygon, sub, type Vec2 } from '@/engine/math';
-import { KERB_W, LANE_W, PIT_KERB_W, TILE_LEN, TRACK_PX } from '@/gfx/tiles';
+import { KERB_W, LANE_W, PIT_KERB_W, PIT_LANE_W, TILE_LEN, TRACK_PX } from '@/gfx/tiles';
 /** Hand-traced track description (see sagarmatha.ts, altima.ts). */
 export interface TrackData {
   id: string;
@@ -116,10 +116,10 @@ export function mainProfile(): Strip[] {
   ];
 }
 export function pitProfile(): Strip[] {
-  const half = PIT_KERB_W + LANE_W / 2;
+  const half = PIT_KERB_W + PIT_LANE_W / 2;
   return [
     { kind: 'kerb', side: 'left', lane: -1, off: -half, w: PIT_KERB_W, divider: false },
-    { kind: 'lane', side: 'mid', lane: 0, off: -half + PIT_KERB_W, w: LANE_W, divider: false },
+    { kind: 'lane', side: 'mid', lane: 0, off: -half + PIT_KERB_W, w: PIT_LANE_W, divider: false },
     { kind: 'kerb', side: 'right', lane: -1, off: half - PIT_KERB_W, w: PIT_KERB_W, divider: false },
   ];
 }

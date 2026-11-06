@@ -15,7 +15,7 @@ Rigenera le versioni procedurali con `npm run textures:generate` (non sovrascriv
 | jump_start.png | 32x36 | prima tile del salto: strisce giallo/nere (8 px) poi voragine |
 | void.png | 32x36 | voragine del salto |
 | jump_end.png | 32x36 | ultima tile del salto: voragine poi strisce giallo/nere (8 px) |
-| pit_lane.png | 32x36 | corsia box |
+| pit_lane.png | 32x54 | corsia box: piastre metalliche 16x18 px con rivetti, luce verde lampeggiante al centro |
 | pit_kerb_left.png | 32x12 | bordino sinistro dei box; il destro e' specchiato |
 | background.png | 128x128 | sfondo fuori pista, si ripete; 1 px = 4 unita' mondo |
 | tunnel.png | 32x36 | corsia in galleria: asfalto scuro, luci cyan sui bordi, una lampada ogni 16 px |

@@ -11,6 +11,8 @@ export const KERB_PX = 22, LANE_PX = 36, PIT_KERB_PX = 12;
 export const KERB_W = KERB_PX * TRACK_PX;     // 82.5
 export const LANE_W = LANE_PX * TRACK_PX;     // 135
 export const PIT_KERB_W = PIT_KERB_PX * TRACK_PX; // 45
+export const PIT_LANE_PX = 54;                // the pit lane is 1.5 lanes wide
+export const PIT_LANE_W = PIT_LANE_PX * TRACK_PX; // 202.5
 export const BG_PX = 4;                       // world units per background pixel
 export const BG_SIZE = 128;
 
@@ -18,6 +20,7 @@ const C = {
   void: '#06070d', deep: '#0b1a3a', panel: '#262a45', panelDark: '#1d2038', panelLight: '#30355a',
   seam: '#171a30', blue: '#1c6fff', blueHi: '#39a8ff', blueLo: '#1240a0', cyan: '#4fd1ff', cyanDim: '#2b7f9a',
   red: '#e8303a', yellow: '#f2d23c', ink: '#1a1a2e', green: '#7dff3a', greenLo: '#2fb52a', white: '#eef0f8', grey: '#6b7390',
+  steel: '#5b6478', steelLo: '#464d5e', steelHi: '#7d8699', steelSeam: '#22262f', rivet: '#b8c0d0',
 };
 
 export type Px = (x: number, y: number) => string | null;
@@ -85,10 +88,15 @@ export const TILE_SPECS: TileSpec[] = [
   { name: 'void', w: TILE_LEN, h: LANE_PX, note: 'voragine del salto', px: voidPx },
   { name: 'jump_end', w: TILE_LEN, h: LANE_PX, note: 'ultima tile del salto: voragine poi strisce giallo/nere (8 px)', px: (x, y) =>
     x >= TILE_LEN - 8 ? (((x + y) >> 2) % 2 === 0 ? C.yellow : C.void) : voidPx(x, y) },
-  { name: 'pit_lane', w: TILE_LEN, h: LANE_PX, note: 'corsia box', px: (x, y) => {
-    if (y === 17 || y === 18) return (x % 12) < 6 ? C.white : C.panelDark;
-    if (x % 8 === 0) return C.seam;
-    return noise(x, y) < 0.05 ? C.panel : C.panelDark;
+  { name: 'pit_lane', w: TILE_LEN, h: PIT_LANE_PX, note: 'corsia box: piastre metalliche 16x18 px con rivetti, luce verde lampeggiante al centro', px: (x, y) => {
+    const px = x % 16, py = y % 18;
+    if (px === 0 || py === 0) return C.steelSeam;                       // plate seams
+    if (py === 1) return C.steelHi;                                      // lit top edge of each plate
+    if ((px === 2 || px === 13) && (py === 3 || py === 15)) return C.rivet;
+    if ((px === 3 || px === 14) && (py === 4 || py === 16)) return C.steelLo; // rivet shadow
+    if (y === 27 && (x % 8) < 3) return C.green;                         // centre guide lights
+    const n = noise(x, y);
+    return n < 0.08 ? C.steelHi : n < 0.2 ? C.steelLo : C.steel;
   } },
   { name: 'pit_kerb_left', w: TILE_LEN, h: PIT_KERB_PX, note: 'bordino sinistro dei box; il destro e\' specchiato', px: (x, y) => {
     if (y <= 1) return C.deep;
