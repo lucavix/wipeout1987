@@ -6,4 +6,5 @@
   Richiede il modulo python `websockets` e `google-chrome`.
 - `extract_pixelart.py` — da un disegno pixel-art (griglia di celle, sfondo bianco, anche a filo dei bordi) ricava lo sprite PNG:
   trova il passo della griglia, quantizza i colori, stampa gli ugelli. Uso: `python3 -I .memory/extract_pixelart.py ref/nave.jpeg public/ships/nave.png [cols rows]`
+- `recolour.py` — sostituisce un colore (o il piu' frequente) in uno sprite PNG; usato per schiarire l'Auricom.
 - `shots/` — screenshot prodotti dagli script (non committati).

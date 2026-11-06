@@ -341,7 +341,8 @@ function drawSelect(): void {
   ships.forEach((s, i) => {
     const d = s.def, x = x0 + i * gap, sel = i === selectIdx;
     if (sel) { ctx.fillStyle = PAL.navy; ctx.fillRect(x - 20, y0 - 20, 50 * sc + 40, 64 * sc + 150); }
-    ctx.drawImage(d.image, x + (50 * sc - d.w * sc) / 2, y0 + (64 * sc - d.h * sc) / 2, d.w * sc, d.h * sc);
+    const k = sc * (d.scale ?? 1);
+    ctx.drawImage(d.image, x + (50 * sc - d.w * k) / 2, y0 + (64 * sc - d.h * k) / 2, d.w * k, d.h * k);
     drawText(ctx, d.name, x, y0 + 64 * sc + 10, 2, sel ? d.trailColor : PAL.grey);
     const bars: [string, number][] = [['VEL', d.stats.speed], ['SPINTA', d.stats.thrust], ['GUIDA', d.stats.handling], ['SCUDO', d.stats.shield]];
     bars.forEach(([n, v], j) => {
@@ -391,7 +392,7 @@ function render(): void {
     const x0 = (width - SHIPS.length * gap + 24) / 2, y0 = 90;
     ctx.fillStyle = 'rgba(6,7,13,0.8)'; ctx.fillRect(0, y0 - 20, width, 64 * sc + 70);
     SHIPS.forEach((d, i) => {
-      ctx.drawImage(d.image, x0 + i * gap, y0, d.w * sc, d.h * sc);
+      ctx.drawImage(d.image, x0 + i * gap, y0, d.w * sc * (d.scale ?? 1), d.h * sc * (d.scale ?? 1));
       drawText(ctx, d.name, x0 + i * gap, y0 + 64 * sc + 10, 2, d.trailColor);
     });
   }

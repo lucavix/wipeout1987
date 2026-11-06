@@ -33,7 +33,10 @@ async def main():
         await call('Page.navigate', url=URL); await asyncio.sleep(2.5)
         await key('Enter', 'Enter')                                   # class
         if SCEN == 'race': await key('ArrowDown', 'ArrowDown')        # Karbonis
-        await key('Enter', 'Enter'); await key('Enter', 'Enter')      # track, ship
+        await key('Enter', 'Enter')                                   # track
+        if SCEN == 'select':
+            await asyncio.sleep(0.5); await shot('select'); print('mode', await js('dbg.mode')); print('errors', await js('(window.__errs||[]).length')); return
+        await key('Enter', 'Enter')                                   # ship
         await asyncio.sleep(0.5)
         print('mode', await js('dbg.mode'), 'track', await js('dbg.track.data.name'))
         if SCEN == 'race':
@@ -62,6 +65,8 @@ async def main():
                 return JSON.stringify({{pos:p.pos, polyN:poly.length, bbox:[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)], mainDist:Math.round(md), pitWidth:pit.width}})}})()"""))
             await asyncio.sleep(0.5)
             print(await js(f'JSON.stringify({{inPit:{player}.inPit, pos:{player}.pos, dead:{player}.dead, s:{player}.s, d:{player}.d}})'))
+        elif SCEN == 'select':
+            pass  # screenshot of the ship-select screen is taken below
         print('errors', await js('(window.__errs||[]).length'))
 asyncio.run(main())
 chrome.terminate()
